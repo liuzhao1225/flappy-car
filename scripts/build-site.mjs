@@ -8,6 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, 'dist');
 const files = [
   'index.html', 'style.css', 'engine.js', 'clock.js', 'game.js', 'seed.js',
+  'about.html', 'about.css', 'robots.txt', 'sitemap.xml', 'assets/social-preview.jpg',
   'share.html', 'social.js', 'social.css', 'vendor/qrcode.js',
   'assets/fonts/pixel.css', 'assets/fonts/FUSION-OFL.txt',
   ...(await readdir(resolve(root,'assets/fonts/pixel'))).filter(name=>name.endsWith('.woff2')).map(name=>`assets/fonts/pixel/${name}`),
@@ -27,7 +28,7 @@ for (const file of files) {
 }
 // A freshly loaded page must use the matching scripts/styles, including on
 // mobile browsers that still have the previous Pages release in their cache.
-for (const file of ['index.html', 'share.html']) {
+for (const file of ['index.html', 'share.html', 'about.html']) {
   const destination = resolve(output, file);
   const source = await readFile(destination, 'utf8');
   const versioned = source.replace(/(src|href)="([^"?#]+\.(?:js|css))"/g, (attribute, name, path) => {

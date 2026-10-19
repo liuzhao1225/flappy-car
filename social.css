@@ -6,6 +6,7 @@
 .social [hidden], .pixel-button[hidden] { display:none!important; }
 #social-actions { position:absolute; left:7%; right:7%; bottom:4%; display:flex; justify-content:center; flex-wrap:wrap; gap:var(--space); }
 #social-actions button { font-size:12px; padding:8px 12px; }
+#game:not([data-state=home]) #about-link { display:none; }
 #game:not([data-state=home]):not([data-state=over]):not([data-state=scores]) #social-actions { display:none; }
 #social-status { position:absolute; top:15%; left:7%; right:7%; background:var(--cream); color:var(--ink); padding:10px; border:3px solid var(--ink); font:400 12px/1.5 var(--font-pixel); }
 #social-status:empty { display:none; }

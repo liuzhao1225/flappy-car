@@ -33,6 +33,14 @@ GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指�
 
 身份与成绩服务位于 `flappy-car-api.xiaoke.ai`，使用 Cloudflare Worker `flappy-car-api` 和独立 D1 数据库 `flappy-car`。`npm run deploy:api` 先应用迁移，再发布 Worker。涉及 API 的修改需先完成此发布，再推送前端；GitHub Actions 仅发布静态站点。
 
+## 搜索与分享预览
+
+首页使用自定义域名 canonical、中文摘要、Open Graph / Twitter 分享封面与 VideoGame JSON-LD。`about.html` 提供无需 JavaScript 的玩法、奖牌和好友规则；首页「玩法」入口可访问，手机保持一屏显示。`robots.txt` 允许搜索抓取并声明 `sitemap.xml`，站点地图只包含首页与玩法页。个人成绩页使用 `noindex,follow`，保留直接打开和分享功能。
+
+分享封面 `assets/social-preview.jpg` 来自 `scripts/social-preview.html` 的 1280×720 浏览器截图，使用游戏现有像素素材。重新截图时保持此视口尺寸。GEO 使用真实、可见的游戏说明和清晰的页面结构，不额外生成关键词页面或评分数据。
+
+站点当前没有 PV / UV 埋点。D1 中的车手 ID 数及对局数只表示游戏参与情况，包含开发测试；同一人在不同浏览器可能产生多个 ID，未开始游戏的访客也不会计入，不能作为独立访客数。SEO 配置发布不表示搜索引擎已经收录。
+
 ## 车手、好友与分享
 
 - 首次开始游戏或打开车手页面创建固定的 8 位车手 ID，昵称可修改。身份保存在本机浏览器；“换设备 / 恢复车手”提供私密恢复码，可在其他设备恢复同一身份。恢复码拥有账号操作权限，不进入分享链接、二维码或公开接口，服务端只保存其摘要。

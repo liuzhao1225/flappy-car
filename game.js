@@ -351,7 +351,7 @@
   window.addEventListener('pointerup', () => { pressed = ''; });
   window.addEventListener('keydown', event => {
     if (event.repeat || !game || failed || FlappySocial.isOpen() || ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)) return;
-    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return;
+    if ((event.target instanceof HTMLButtonElement || event.target instanceof HTMLAnchorElement) && ['Space', 'Enter'].includes(event.code)) return;
     if (['Space', 'ArrowUp', 'KeyW', 'Enter'].includes(event.code)) {
       event.preventDefault();
       act(primaryAction);

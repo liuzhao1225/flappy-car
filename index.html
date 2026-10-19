@@ -4,9 +4,46 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#4ec0ca">
-    <meta name="description" content="像素 Roadster 飞行游戏。点击、触摸或按空格喷气上升。">
-    <title>Flappy Car</title>
-    <link rel="icon" href="data:,">
+    <meta name="description" content="免费在线玩 Flappy Car 像素飞车：点击让 Roadster 喷气，穿越星舰喷口，赢取 Doge 奖牌。支持手机与电脑、好友排行榜和成绩二维码分享。">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <title>Flappy Car 像素飞车 · 免费在线 Roadster 游戏</title>
+    <link rel="canonical" href="https://flappy-car.xiaoke.ai/">
+    <link rel="icon" type="image/png" href="assets/roadster.png">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Flappy Car">
+    <meta property="og:locale" content="zh_CN">
+    <meta property="og:title" content="Flappy Car · 像素飞车">
+    <meta property="og:description" content="驾驶 Roadster 穿越星舰喷口，赢取 Doge 奖牌，与好友比拼最高分。手机、电脑打开即玩。">
+    <meta property="og:url" content="https://flappy-car.xiaoke.ai/">
+    <meta property="og:image" content="https://flappy-car.xiaoke.ai/assets/social-preview.jpg">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="720">
+    <meta property="og:image:alt" content="Flappy Car 像素 Roadster 与星舰喷口">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Flappy Car · 像素飞车">
+    <meta name="twitter:description" content="点击喷气，穿越星舰喷口，与好友比拼最高分。免费在线玩。">
+    <meta name="twitter:image" content="https://flappy-car.xiaoke.ai/assets/social-preview.jpg">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "@id": "https://flappy-car.xiaoke.ai/#game",
+        "name": "Flappy Car",
+        "alternateName": ["Flappy Roadster", "像素飞车"],
+        "url": "https://flappy-car.xiaoke.ai/",
+        "description": "免费的单人像素飞车网页游戏。点击让 Roadster 喷气上升，避开星舰助推器，每穿过一组喷口得一分。支持好友排行榜、Doge 奖牌与成绩二维码分享。",
+        "image": "https://flappy-car.xiaoke.ai/assets/social-preview.jpg",
+        "inLanguage": "zh-CN",
+        "genre": ["Arcade", "休闲街机"],
+        "gamePlatform": "Web browser",
+        "operatingSystem": "Any OS with a modern web browser",
+        "applicationCategory": "GameApplication",
+        "playMode": "https://schema.org/SinglePlayer",
+        "isAccessibleForFree": true,
+        "sameAs": "https://github.com/liuzhao1225/flappy-car",
+        "subjectOf": {"@type": "WebPage", "url": "https://flappy-car.xiaoke.ai/about.html", "name": "Flappy Car 玩法与说明"}
+      }
+    </script>
     <link rel="preload" href="assets/atlas.png" as="image" fetchpriority="high">
     <link rel="preconnect" href="https://flappy-car-api.xiaoke.ai" crossorigin>
     <link rel="stylesheet" href="style.css">
@@ -22,6 +59,7 @@
   </head>
   <body>
     <main id="game" aria-label="Flappy Roadster" data-state="loading">
+      <h1 class="sr-only">Flappy Car 像素飞车</h1>
       <canvas id="screen" width="288" height="512" tabindex="0" aria-label="Flappy Roadster 游戏画面" aria-describedby="instructions"></canvas>
       <div id="controls">
         <button id="play" class="sprite-button" aria-label="开始游戏" hidden></button>
@@ -30,13 +68,13 @@
         <button id="resume" class="sprite-button" aria-label="继续游戏" hidden></button>
         <button id="menu" class="sprite-button" aria-label="返回主菜单" hidden></button>
       </div>
-      <div id="social-actions"><button id="open-social" class="pixel-button">车手 / 好友</button><button id="share-result" class="pixel-button" hidden>分享成绩</button></div>
+      <div id="social-actions"><button id="open-social" class="pixel-button">车手 / 好友</button><button id="share-result" class="pixel-button" hidden>分享成绩</button><a id="about-link" class="pixel-button" href="about.html">玩法</a></div>
       <p id="social-status" role="status" aria-live="polite"></p>
       <p id="invite-status" role="status" aria-live="polite"></p>
       <p id="instructions" class="sr-only">点击画面、触摸屏幕或按空格、上方向键喷气上升。避开箭体和地面，每穿过一组喷口得一分。P 暂停，M 开关音效。</p>
       <p id="announcement" class="sr-only" aria-live="polite"></p>
       <div id="error" role="alert" hidden></div>
     </main>
-    <noscript>请启用 JavaScript 后刷新页面。</noscript>
+    <noscript>Flappy Car 需要启用 JavaScript 才能游玩。<a href="about.html">查看玩法与说明</a></noscript>
   </body>
 </html>

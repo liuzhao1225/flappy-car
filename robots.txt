@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://flappy-car.xiaoke.ai/sitemap.xml
