@@ -258,9 +258,6 @@
   function render() {
     context.imageSmoothingEnabled = false;
     context.save();
-    if (game.state === 'dying' && game.deathFrames < 12) {
-      context.translate(game.deathFrames % 2 === 0 ? 2 : -2, 0);
-    }
     sprite(`bg_${game.theme}`, 0, 0);
     for (const pipe of game.pipes) {
       drawBooster(pipe.x, pipe.top);

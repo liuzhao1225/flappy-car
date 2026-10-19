@@ -1,11 +1,12 @@
 :root { color-scheme: light; background: #111; font-family: system-ui, sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-body { display: grid; place-items: center; overscroll-behavior: none; }
+body { height: 100svh; display: grid; place-items: center; overscroll-behavior: none; }
 #game {
   position: relative;
   width: min(100vw, 56.25vh);
-  width: min(100vw, 56.25dvh);
+  /* Keep the frame stable while mobile browser toolbars expand or collapse. */
+  width: min(100vw, 56.25svh);
   aspect-ratio: 9 / 16;
   overflow: hidden;
   background: #4ec0ca;
@@ -13,6 +14,7 @@ body { display: grid; place-items: center; overscroll-behavior: none; }
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; outline: none; }
 .sprite-button {
