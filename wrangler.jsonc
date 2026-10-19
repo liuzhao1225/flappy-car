@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flappy-car-api",
+  "main": "api/worker.mjs",
+  "account_id": "fd34f102f861414f76a9a7950b0627fb",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": false,
+  "routes": [{ "pattern": "flappy-car-api.xiaoke.ai", "custom_domain": true }],
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "flappy-car",
+    "database_id": "c845e182-7c96-4f11-922b-1676fe2f288f",
+    "migrations_dir": "migrations"
+  }],
+  "observability": { "enabled": true }
+}

@@ -22,6 +22,32 @@
   let accumulatedTime = 0;
   let previousControls = '';
   let pressed = '';
+  let starting = false;
+  let round;
+  let roundFrames = 0;
+  let flaps = [];
+  let recording = false;
+
+  async function startRound() {
+    if (starting) return;
+    starting = true;
+    try {
+      round = await FlappySocial.prepareRound();
+      game.random = flappyRandom(round.seed);
+      roundFrames = 0; flaps = []; recording = false;
+      game.ready();
+      handleEvents(); render();
+      canvas.focus({ preventScroll: true });
+    } catch (error) { FlappySocial.reportGameError(error); }
+    finally { starting = false; }
+  }
+
+  function flap() {
+    if (game.paused || !round || game.birdBody().bounds.top < 0) return;
+    if (game.state === 'ready') recording = true;
+    if (flaps.at(-1) !== roundFrames) flaps.push(roundFrames);
+    game.flap();
+  }
 
   function reportFailure(error) {
     failed = true;
@@ -289,9 +315,9 @@
 
   function primaryAction() {
     if (game.paused) game.togglePause();
-    else if (game.state === 'home') game.ready();
-    else if (game.state === 'ready' || game.state === 'playing') game.flap();
-    else if (game.state === 'over' && game.overFrames >= 50) game.ready();
+    else if (game.state === 'home') startRound();
+    else if (game.state === 'ready' || game.state === 'playing') flap();
+    else if (game.state === 'over' && game.overFrames >= 50) startRound();
     else if (game.state === 'scores') game.home();
   }
 
@@ -303,7 +329,7 @@
   });
 
   const actions = {
-    play: () => game.ready(), scores: () => game.showScores(),
+    play: () => startRound(), scores: () => FlappySocial.show('rank'),
     pause: () => game.togglePause(), resume: () => game.togglePause(), menu: () => game.home(),
   };
   for (const [id, button] of Object.entries(buttons)) {
@@ -318,7 +344,7 @@
   }
   window.addEventListener('pointerup', () => { pressed = ''; });
   window.addEventListener('keydown', event => {
-    if (event.repeat || !game || failed) return;
+    if (event.repeat || !game || failed || FlappySocial.isOpen() || ['INPUT','TEXTAREA','SELECT'].includes(event.target.tagName)) return;
     if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return;
     if (['Space', 'ArrowUp', 'KeyW', 'Enter'].includes(event.code)) {
       event.preventDefault();
@@ -350,7 +376,15 @@
       previousTime = time;
       const stepDuration = 1000 / CONFIG.fps;
       while (accumulatedTime >= stepDuration) {
+        const active = recording && !game.paused;
         game.step();
+        if (active) {
+          roundFrames++;
+          if (game.state === 'over') {
+            recording = false;
+            FlappySocial.completeRound({ id:round.id, frames:roundFrames, flaps, score:game.score }).catch(FlappySocial.reportGameError);
+          }
+        }
         accumulatedTime -= stepDuration;
       }
       handleEvents();

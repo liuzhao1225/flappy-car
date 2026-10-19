@@ -6,7 +6,7 @@
 
 ## 运行
 
-运行 `npm start` 后访问 http://127.0.0.1:5173，无需安装依赖。也可自行用浏览器打开 `index.html`；自动化验收使用本地 HTTP，未验证浏览器的 `file://` 行为。
+使用 Node.js 22.13 或更新版本。执行 `npm ci --registry=https://registry.npmmirror.com`，再执行 `npx wrangler d1 migrations apply flappy-car --local` 初始化本地数据库。分别运行 `npm run dev:api`（8787 端口）和 `npm start`（5173 端口），访问 http://127.0.0.1:5173。开发环境仅连接本地数据库。
 
 点击开始按钮进入准备页，再点击画面、触摸或按空格 / ↑ 喷气上升。P / Esc 暂停和继续，M 切换音效。最高分保存在当前浏览器的 localStorage 中。切换标签页或离开窗口会自动暂停。
 
@@ -20,7 +20,7 @@
 - 车辆碰撞轮廓从原生图片的非透明像素生成，随车身旋转，覆盖车头、车尾和轮胎；透明留白和喷气不参与碰撞。触地和顶部起跳限制也按实际车身判断。
 - 固定 60 Hz 物理更新、碰撞闪白、下坠、结算动画、最高分和 10 / 20 / 30 / 40 分奖牌。
 - 奖牌使用选定的朝左浮雕 Doge，44×44 原生像素，整枚硬币的铜、银、金、铂金配色分别对应 10 / 20 / 30 / 40 分，币面不含 D / Ð 字母。
-- 主菜单的成绩按钮展示当前浏览器最高分；未接入原版应用商店评分和在线排行榜服务。
+- 主菜单的成绩按钮打开总榜 / 好友榜，结算后可保存成绩分享图。
 - 物理参考原版反混淆项目 reFlappy 的 original 分支，保留 float32 速度、整数位置、起跳及旋转规则；参数与轨迹见 [PHYSICS.md](PHYSICS.md)。未运行原版 APK 做逐帧视频校验。
 
 ## 发布
@@ -29,9 +29,20 @@
 
 GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指向 `liuzhao1225.github.io`。GitHub Pages 默认地址会跳转到自定义域名。
 
+身份与成绩服务位于 `flappy-car-api.xiaoke.ai`，使用 Cloudflare Worker `flappy-car-api` 和独立 D1 数据库 `flappy-car`。`npm run deploy:api` 先应用迁移，再发布 Worker。涉及 API 的修改需先完成此发布，再推送前端；GitHub Actions 仅发布静态站点。
+
+## 车手、好友与分享
+
+- 首次开始游戏或打开车手页面创建固定的 8 位车手 ID，昵称可修改。身份保存在本机浏览器；“换设备 / 恢复车手”提供私密恢复码，可在其他设备恢复同一身份。恢复码拥有账号操作权限，不进入分享链接、二维码或公开接口，服务端只保存其摘要。
+- 输入车手 ID 或打开对方的成绩分享页发送好友申请；接收方接受后，双方可在好友榜中比较最高分。支持撤回、忽略和移除好友。
+- 每局使用服务端发放的随机种子。结算提交帧数和点击记录，服务端使用相同引擎及原生车辆轮廓复算分数后保存。重复上传同一局不会重复入榜，上传失败会显示原因并保留待上传记录，车手页可重试。
+- 总榜和好友榜按各人的最高分排序，同分并列，显示前 100 名。原有本机最高分保留，在线榜单从带完整飞行记录的新版开始统计。
+- `share.html?r=<成绩ID>` 展示独立成绩页，包含本次分数、昵称 / ID、最高分、当前总榜排名及 Doge 奖牌。保存图片导出 1080×1440 PNG，二维码编码该次成绩的链接，手机也可长按预览图保存。
+- 复算验证游戏规则和分数一致性；它不判断玩家是否使用自动化操作。
+
 ## 检查
 
-`npm test` 验证原版轨迹、起跳、碰撞、计分、暂停、死亡流程和障碍生成。
+`npm test` 验证原版轨迹、起跳、碰撞、计分、暂停、死亡流程、操作复算，以及身份、好友权限、排名、同分和公开成绩接口。
 
 车身逐格像素源为 `assets/roadster.pixels.json`，执行 `node scripts/build-pixel-sprite.cjs roadster` 直接编码为 `assets/roadster.png`。每个字符对应一个图片像素，绘制尺寸为 52 × 20。参考图与制作说明见 [ROADSTER-SOURCE.md](assets/ROADSTER-SOURCE.md)。
 
@@ -45,5 +56,6 @@ GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指�
 - [THEN00P/reFlappy](https://github.com/THEN00P/reFlappy)：原版反混淆物理与场景规则依据，具体版本和文件链接见 [PHYSICS.md](PHYSICS.md)。
 - [nebez/floppybird](https://github.com/nebez/floppybird)：原始音效。音效转为 WAV 供浏览器本地播放，保留其 [来源许可](assets/audio/SOURCE-LICENSE)。
 - Flappy Bird 的原始游戏、美术和音效归 Dong Nguyen / .GEARS 所有。这里新写的网页逻辑与原作者无关联。
+- QR Code Generator 1.4.4，Kazuhiko Arase，MIT 许可（保留在 `vendor/qrcode.js` 文件头）。Silkscreen 像素字体使用 SIL Open Font License，见 `assets/fonts/SIL-OFL.txt`。
 
 `assets/atlas.js` 由 `assets/atlas.txt` 的 1024 × 1024 纹理坐标转换得到，避免直接打开本地文件时需要 fetch。

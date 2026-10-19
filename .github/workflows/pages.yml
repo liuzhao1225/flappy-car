@@ -25,6 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci --registry=https://registry.npmmirror.com
       - run: npm test
       - run: npm run build
       - uses: actions/configure-pages@v5
