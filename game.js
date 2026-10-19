@@ -18,8 +18,7 @@
   let game;
   let failed = false;
   let muted = false;
-  let previousTime;
-  let accumulatedTime = 0;
+  const clock = new FlappyClock(CONFIG.fps);
   let previousControls = '';
   let pressed = '';
   let starting = false;
@@ -47,7 +46,10 @@
   function flap() {
     if (game.paused || !round || game.birdBody().bounds.top < 0) return;
     if (game.state === 'ready') recording = true;
-    if (flaps.at(-1) !== roundFrames) flaps.push(roundFrames);
+    // Multiple touch/key events before the next physics tick are one impulse,
+    // exactly as stored in the server replay's frame-indexed input list.
+    if (flaps.at(-1) === roundFrames) return;
+    flaps.push(roundFrames);
     game.flap();
   }
 
@@ -313,7 +315,7 @@
     try {
       action();
       handleEvents();
-      render();
+      if (game.state !== 'playing' || game.paused) render();
     } catch (error) { reportFailure(error); }
   }
 
@@ -328,7 +330,7 @@
   canvas.addEventListener('pointerdown', event => {
     if (!event.isPrimary || event.button !== 0) return;
     event.preventDefault();
-    canvas.focus({ preventScroll: true });
+    if (event.pointerType === 'mouse' && document.activeElement !== canvas) canvas.focus({ preventScroll: true });
     act(primaryAction);
   });
 
@@ -366,8 +368,7 @@
   function pauseWhenHidden() {
     if (!game || failed) return;
     if ((game.state === 'playing' || game.state === 'ready') && !game.paused) act(() => game.togglePause());
-    previousTime = undefined;
-    accumulatedTime = 0;
+    clock.reset();
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseWhenHidden(); });
   window.addEventListener('blur', pauseWhenHidden);
@@ -375,18 +376,13 @@
   function frame(time) {
     if (failed) return;
     try {
-      if (document.hidden || FlappySocial.isOpen()) {
-        previousTime = undefined;
+      if (document.hidden || FlappySocial.isOpen() || game.paused) {
+        clock.reset();
         requestAnimationFrame(frame);
         return;
       }
-      if (previousTime !== undefined) accumulatedTime += Math.min(time - previousTime, 100);
-      previousTime = time;
-      const stepDuration = 1000 / CONFIG.fps;
-      let advanced = false;
-      while (accumulatedTime >= stepDuration) {
-        advanced = true;
-        const active = recording && !game.paused;
+      const advanced = clock.advance(time, () => {
+        const active = recording;
         game.step();
         if (active) {
           roundFrames++;
@@ -395,8 +391,7 @@
             FlappySocial.completeRound({ id:round.id, frames:roundFrames, flaps, score:game.score }).catch(FlappySocial.reportGameError);
           }
         }
-        accumulatedTime -= stepDuration;
-      }
+      });
       handleEvents();
       if (advanced && !game.paused) render();
       requestAnimationFrame(frame);

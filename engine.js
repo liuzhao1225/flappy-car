@@ -136,24 +136,29 @@
     }
 
     birdBody() {
+      const x = Math.round(this.bird.x), y = Math.round(this.bird.y);
+      const cached = this._collision;
+      if (cached && cached.x === x && cached.y === y && cached.angle === this.bird.angle && cached.body === this.body) return cached.shape;
       const angle = this.bird.angle * Math.PI / 180;
       const cos = this.bird.angle === 90 ? 0 : Math.cos(angle);
       const sin = Math.sin(angle);
+      const ac = Math.abs(cos), as = Math.abs(sin);
       // Match drawRoadster's centre, rotation and native pixel size exactly.
-      const x = Math.round(this.bird.x), y = Math.round(this.bird.y);
       const bounds = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
       const spans = this.body.map(span => {
         const sx = x + span.x * cos - span.y * sin;
         const sy = y + span.x * sin + span.y * cos;
-        const extentX = span.halfWidth * Math.abs(cos) + 0.5 * Math.abs(sin);
-        const extentY = span.halfWidth * Math.abs(sin) + 0.5 * Math.abs(cos);
+        const extentX = span.halfWidth * ac + 0.5 * as;
+        const extentY = span.halfWidth * as + 0.5 * ac;
         bounds.left = Math.min(bounds.left, sx - extentX);
         bounds.right = Math.max(bounds.right, sx + extentX);
         bounds.top = Math.min(bounds.top, sy - extentY);
         bounds.bottom = Math.max(bounds.bottom, sy + extentY);
         return { x: sx, y: sy, halfWidth: span.halfWidth };
       });
-      return { spans, bounds, cos, sin };
+      const shape = { spans, bounds, cos, sin };
+      this._collision = { x, y, angle: this.bird.angle, body: this.body, shape };
+      return shape;
     }
 
     die(onGround) {

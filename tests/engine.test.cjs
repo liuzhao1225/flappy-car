@@ -208,6 +208,20 @@ function collisionScene({ x, y, angle = 0, top = 160 }) {
   return game;
 }
 
+test('collision reuse invalidates with pose changes and leaves previous shapes intact', () => {
+  const game = start();
+  const initial = game.birdBody();
+  const snapshot = JSON.stringify(initial);
+  assert.equal(game.birdBody(), initial);
+  for (const key of ['x', 'y', 'angle']) {
+    const before = game.birdBody();
+    game.bird[key] += 1;
+    assert.notEqual(game.birdBody(), before);
+    assert.equal(game.birdBody(), game.birdBody());
+  }
+  assert.equal(JSON.stringify(initial), snapshot);
+});
+
 test('vehicle collision follows opaque pixels, excluding padding, wheel gaps and exhaust', () => {
   const game = start();
   game.bird.y = 100;

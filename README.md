@@ -27,6 +27,8 @@
 
 推送到 `main` 后，GitHub Actions 运行测试、构建 `dist/` 并发布到 GitHub Pages。`npm run build` 只复制游戏运行所需文件及来源许可，参考图、像素源、开发脚本和测试截图不进入站点。`version.json` 记录发布提交及文件 SHA-256，供线上版本校验。
 
+构建后的 HTML 为脚本和样式附加内容哈希，手机刷新后会加载与该页面匹配的资源版本。`clock.js` 负责显示帧调度，`engine.js` 继续用于客户端和服务端的固定步进计算；性能回归与计算一致性说明见 [PHYSICS.md](PHYSICS.md)。
+
 GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指向 `liuzhao1225.github.io`。GitHub Pages 默认地址会跳转到自定义域名。
 
 身份与成绩服务位于 `flappy-car-api.xiaoke.ai`，使用 Cloudflare Worker `flappy-car-api` 和独立 D1 数据库 `flappy-car`。`npm run deploy:api` 先应用迁移，再发布 Worker。涉及 API 的修改需先完成此发布，再推送前端；GitHub Actions 仅发布静态站点。
@@ -37,7 +39,7 @@ GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指�
 - 输入车手 ID 或打开对方的成绩分享页发送好友申请；接收方接受后，双方可在好友榜中比较最高分。支持撤回、忽略和移除好友。
 - 每局使用服务端发放的随机种子。结算提交帧数和点击记录，服务端使用相同引擎及原生车辆轮廓复算分数后保存。重复上传同一局不会重复入榜，上传失败会显示原因并保留待上传记录，车手页可重试。
 - 总榜和好友榜按各人的最高分排序，同分并列，显示前 100 名。原有本机最高分保留，在线榜单从带完整飞行记录的新版开始统计。
-- `share.html?r=<成绩ID>` 展示独立成绩页，包含本次分数、昵称 / ID、最高分、当前总榜排名及 Doge 奖牌。保存图片导出 1080×1440 PNG，二维码编码该次成绩的链接，手机也可长按预览图保存。
+- `share.html?r=<成绩ID>` 展示独立成绩页，包含本次分数、昵称 / ID、最高分、当前总榜排名及 Doge 奖牌。保存图片导出 1080×1440 PNG，二维码打开带好友邀请的游戏首页，手机也可长按预览图保存。
 - 复算验证游戏规则和分数一致性；它不判断玩家是否使用自动化操作。
 
 ## 检查
