@@ -30,6 +30,23 @@
   }
   function status(message) { const node = $('#social-status'); if (node) node.textContent = message; }
   function resultURL(id) { const url = new URL('share.html', location.href); url.search = ''; url.hash = ''; url.searchParams.set('r', id); return url.href; }
+  async function acceptInvite(code) {
+    const banner=$('#invite-status');
+    banner.textContent='正在添加好友…';
+    try {
+      if (!/^[a-f0-9]{32}$/.test(code)) throw new Error('好友邀请无效，请重新扫描二维码');
+      await ensureIdentity();
+      const result=await api(`/invites/${code}`,{method:'POST'});
+      banner.textContent=result.self ? '这是你的邀请二维码' : `已与 ${result.friend.name} 成为好友`;
+      const url=new URL(location.href); url.searchParams.delete('invite');
+      history.replaceState(null,'',url);
+    } catch(error) {
+      console.error(error);
+      banner.textContent=`添加好友失败：${error.message} `;
+      const retry=document.createElement('button'); retry.textContent='重试'; retry.className='pixel-button';
+      retry.onclick=()=>acceptInvite(code); banner.append(retry);
+    }
+  }
   async function submitPending() {
     const pending = JSON.parse(localStorage.getItem(pendingKey) || 'null');
     if (!pending) return;
@@ -222,6 +239,7 @@
     return qrLoading;
   }
   async function paintCard(canvas, result, url) {
+    if (!/^[a-f0-9]{32}$/.test(result.inviteCode)) throw new Error('分享邀请信息缺失，请重新读取成绩');
     const [car, medals, fonts] = await Promise.all([
       loadImage('assets/roadster.png'), loadImage('assets/dogecoin-medals.png'),
       document.fonts.load('12px "Flappy Pixel"',result.player.name+' 本次飞行最高分总榜排名扫码开始铂金黄金白银青铜解锁'),
@@ -267,12 +285,13 @@
     fill('#273849',4,344,352,3);
     text('最高分',20,370,12,'#64767b'); text(String(result.player.best),20,397,24);
     text('总榜排名',120,370,12,'#64767b'); text(result.player.rank ? `#${result.player.rank}` : '—',120,397,24);
-    text('扫码开始飞行',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
-    const qr = qrcode(0,'M'); qr.addData(new URL('./',url).href); qr.make();
+    text('扫码开玩 · 自动加好友',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
+    const inviteURL=new URL('./',url); inviteURL.searchParams.set('invite',result.inviteCode);
+    const qr = qrcode(0,'M'); qr.addData(inviteURL.href); qr.make();
     const count = qr.getModuleCount(), scale = 2, side = (count+8)*scale, left = 344-side, top = 464-side;
     fill('#ffffff',left,top,side,side); ctx.fillStyle='#000000';
     for (let y=0;y<count;y++) for(let x=0;x<count;x++) if(qr.isDark(y,x)) ctx.fillRect(left+(x+4)*scale,top+(y+4)*scale,scale,scale);
-    canvas.setAttribute('aria-label',`${result.player.name}，本次 ${result.score} 分，最高 ${result.player.best} 分，车手 ID ${result.player.id}。扫码开始飞行。`);
+    canvas.setAttribute('aria-label',`${result.player.name}，本次 ${result.score} 分，最高 ${result.player.best} 分，车手 ID ${result.player.id}。扫码开始飞行并自动加好友。`);
   }
   async function renderShare(root,result,own) {
     const url=resultURL(result.id);
@@ -301,5 +320,8 @@
       document.title=`${result.player.name} 飞了 ${result.score} 分 · Flappy Car`;
       await renderShare(content,result,false);
     }).catch(error=>{ content.innerHTML='<p>无法读取这次成绩。</p><a class="button" href="./">返回游戏</a>'; report(error,root); });
+  } else {
+    const invitation=new URL(location.href).searchParams.get('invite');
+    if (invitation !== null) acceptInvite(invitation);
   }
 })();

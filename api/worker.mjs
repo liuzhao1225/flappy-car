@@ -40,7 +40,8 @@ async function route(request, env) {
   if (path === '/api/players' && method === 'POST') {
     const id = crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase();
     const token = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
-    await db.prepare('INSERT INTO players (id,name,token_hash,created_at) VALUES (?,?,?,?)').bind(id, `车手 ${id.slice(-4)}`, await hash(token), Date.now()).run();
+    const invite = crypto.randomUUID().replaceAll('-', '');
+    await db.prepare('INSERT INTO players (id,name,token_hash,created_at,invite_code) VALUES (?,?,?,?,?)').bind(id, `车手 ${id.slice(-4)}`, await hash(token), Date.now(), invite).run();
     return json({ player: await profile(db, id), token }, 201);
   }
   if (path === '/api/me') {
@@ -69,7 +70,7 @@ async function route(request, env) {
   }
   const runMatch = path.match(/^\/api\/runs\/([a-f0-9-]{36})$/);
   if (runMatch) {
-    const run = await db.prepare('SELECT * FROM runs WHERE id=?').bind(runMatch[1]).first();
+    const run = await db.prepare('SELECT r.*,p.invite_code AS inviteCode FROM runs r JOIN players p ON p.id=r.player_id WHERE r.id=?').bind(runMatch[1]).first();
     if (!run) fail(404, '这次成绩不存在');
     if (method === 'POST') {
       const me = await actor(request, db);
@@ -85,7 +86,18 @@ async function route(request, env) {
       }
     } else if (method !== 'GET') fail(405, '不支持这个操作');
     if (run.score === null) fail(404, '这次飞行还没有成绩');
-    return json({ id: run.id, score: run.score, finishedAt: run.finished_at, player: await profile(db, run.player_id) });
+    return json({ id: run.id, score: run.score, finishedAt: run.finished_at, inviteCode:run.inviteCode, player: await profile(db, run.player_id) });
+  }
+  const inviteMatch = path.match(/^\/api\/invites\/([a-f0-9]{32})$/);
+  if (inviteMatch && method === 'POST') {
+    const me = await actor(request, db);
+    const inviter = await db.prepare('SELECT id,name FROM players WHERE invite_code=?').bind(inviteMatch[1]).first();
+    if (!inviter) fail(404, '好友邀请无效，请重新扫描二维码');
+    if (inviter.id === me.id) return json({ self:true, friend:inviter });
+    // The shared QR is an invitation. Either direction of an existing request
+    // becomes accepted; repeated scans preserve one unordered friendship pair.
+    await db.prepare("INSERT INTO friendships (sender,receiver,status,created_at) VALUES (?,?,'accepted',?) ON CONFLICT DO UPDATE SET status='accepted'").bind(inviter.id, me.id, Date.now()).run();
+    return json({ status:'accepted', friend:inviter });
   }
   if (path === '/api/friends' && method === 'GET') {
     const me = await actor(request, db);

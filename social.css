@@ -9,6 +9,9 @@
 #game:not([data-state=home]):not([data-state=over]):not([data-state=scores]) #social-actions { display:none; }
 #social-status { position:absolute; top:15%; left:7%; right:7%; background:var(--cream); color:var(--ink); padding:10px; border:3px solid var(--ink); font:400 12px/1.5 var(--font-pixel); }
 #social-status:empty { display:none; }
+#invite-status { position:absolute; top:var(--space); left:7%; right:7%; margin:0; padding:8px; border:3px solid var(--ink); background:var(--cream); color:var(--ink); font:400 12px/1.5 var(--font-pixel); }
+#invite-status:empty, #game:not([data-state=home]):not([data-state=over]) #invite-status { display:none; }
+#invite-status button { padding:2px 8px; }
 .social { color:var(--ink); font:400 12px/1.5 var(--font-pixel); }
 dialog.social { border:4px solid var(--ink); padding:0; width:min(960px,calc(100vw - 24px)); height:min(720px,calc(100dvh - 24px)); max-height:none; background:var(--cream); box-shadow:6px 6px 0 #172b3c; overflow:hidden; }
 dialog.social[open] { display:flex; flex-direction:column; }
