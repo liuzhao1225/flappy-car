@@ -177,31 +177,51 @@
   }
   const loadImage = source => new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(`无法读取分享素材 ${source}`)); image.src = source; });
   async function paintCard(canvas, result, url) {
-    const [car, medals] = await Promise.all([loadImage('assets/roadster.png'), loadImage('assets/dogecoin-medals.png')]);
+    const [car, medals, fonts] = await Promise.all([
+      loadImage('assets/roadster.png'), loadImage('assets/dogecoin-medals.png'),
+      document.fonts.load('12px "Fusion Pixel"'),
+    ]);
+    if (!fonts.length) throw new Error('像素字体未加载，无法生成分享图');
     const ctx = canvas.getContext('2d'); canvas.width = 360; canvas.height = 480; ctx.imageSmoothingEnabled = false;
     const fill = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x,y,w,h); };
-    const text = (value,x,y,size=12,color='#273849') => { ctx.fillStyle=color; ctx.font=`700 ${size}px ui-monospace,"PingFang SC",monospace`; ctx.fillText(value,x,y); };
+    const lettering = document.createElement('canvas'), ink = lettering.getContext('2d');
+    const text = (value,x,y,size=12,color='#273849') => {
+      ink.font='12px "Fusion Pixel"';
+      const metrics=ink.measureText(value), ascent=Math.ceil(metrics.fontBoundingBoxAscent);
+      lettering.width=Math.ceil(metrics.width);
+      lettering.height=ascent+Math.ceil(metrics.fontBoundingBoxDescent);
+      ink.font='12px "Fusion Pixel"'; ink.fillStyle=color; ink.fillText(value,0,ascent);
+      // Rasterize once on the native grid; keep exported glyphs free of blended edges.
+      const pixels=ink.getImageData(0,0,lettering.width,lettering.height);
+      for (let i=3;i<pixels.data.length;i+=4) pixels.data[i]=pixels.data[i]>=128 ? 255 : 0;
+      ink.putImageData(pixels,0,0);
+      const scale=size/12;
+      ctx.drawImage(lettering,x,y-ascent*scale,lettering.width*scale,lettering.height*scale);
+    };
     fill('#273849',0,0,360,480); fill('#fff3ce',4,4,352,472);
     fill('#4ec0ca',4,4,352,57); fill('#273849',4,61,352,3);
     bitmap(ctx,'FLAPPY CAR',20,20,3,'#273849');
-    text(result.player.name,20,90,18); text(`ID ${result.player.id}`,20,110,11,'#64767b');
+    // The font uses a native 12 px grid. Keep every label at 12 px or 24 px.
+    ctx.font='24px "Fusion Pixel"';
+    const nameSize=ctx.measureText(result.player.name).width <= 320 ? 24 : 12;
+    text(result.player.name,20,90,nameSize); text(`ID ${result.player.id}`,20,110,12,'#64767b');
     text('本次飞行',20,143,12);
     const scoreText = String(result.score), scoreScale = scoreText.length > 4 ? 6 : 9;
     bitmap(ctx,scoreText,20,155,scoreScale,'#273849');
     const frame = result.score >= 40 ? 0 : result.score >= 30 ? 1 : result.score >= 20 ? 2 : result.score >= 10 ? 3 : null;
     if (frame !== null) {
       ctx.drawImage(medals,frame*44,0,44,44,244,137,88,88);
-      text(['铂金 DOGE','黄金 DOGE','白银 DOGE','青铜 DOGE'][frame],250,239,10);
-    } else { text('NEXT MEDAL',248,177,11); text('10 分解锁',248,198,12); }
+      text(['铂金 DOGE','黄金 DOGE','白银 DOGE','青铜 DOGE'][frame],250,239,12);
+    } else { text('NEXT MEDAL',248,177,12); text('10 分解锁',248,198,12); }
     fill('#c3ece0',4,254,352,90);
     // Native game pixels enlarged by whole numbers, with flat colour exhaust.
     fill('#9bd6cc',4,318,352,26); fill('#84bdb7',20,296,25,48); fill('#a8dfd2',28,282,29,62); fill('#84bdb7',300,292,28,52);
     ctx.drawImage(car,102,264,156,60);
     for (const x of [111,213]) { fill('#659eae',x-2,312,10,16); fill('#c3eff0',x,312,6,22); fill('#ffffff',x+2,312,2,16); }
     fill('#273849',4,344,352,3);
-    text('最高分',20,370,11,'#64767b'); text(String(result.player.best),20,397,23);
-    text('总榜排名',120,370,11,'#64767b'); text(result.player.rank ? `#${result.player.rank}` : '—',120,397,23);
-    text('扫码挑战 · 添加好友',20,434,12); text('flappy-car.xiaoke.ai',20,456,10,'#64767b');
+    text('最高分',20,370,12,'#64767b'); text(String(result.player.best),20,397,24);
+    text('总榜排名',120,370,12,'#64767b'); text(result.player.rank ? `#${result.player.rank}` : '—',120,397,24);
+    text('扫码挑战 · 添加好友',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
     const qr = qrcode(0,'M'); qr.addData(url); qr.make();
     const count = qr.getModuleCount(), scale = 2, side = (count+8)*scale, left = 344-side, top = 464-side;
     fill('#ffffff',left,top,side,side); ctx.fillStyle='#000000';

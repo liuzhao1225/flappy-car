@@ -9,7 +9,7 @@ const output = resolve(root, 'dist');
 const files = [
   'index.html', 'style.css', 'engine.js', 'game.js', 'seed.js',
   'share.html', 'social.js', 'social.css', 'vendor/qrcode.js',
-  'assets/fonts/silkscreen.woff2', 'assets/fonts/SIL-OFL.txt',
+  'assets/fonts/fusion-pixel-12px.woff2', 'assets/fonts/FUSION-OFL.txt',
   'assets/atlas.js', 'assets/atlas.png',
   'assets/roadster.png', 'assets/starship-booster.png', 'assets/dogecoin-medals.png',
   ...['wing', 'point', 'hit', 'die', 'swooshing'].map(name => `assets/audio/${name}.wav`),

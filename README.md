@@ -56,6 +56,6 @@ GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指�
 - [THEN00P/reFlappy](https://github.com/THEN00P/reFlappy)：原版反混淆物理与场景规则依据，具体版本和文件链接见 [PHYSICS.md](PHYSICS.md)。
 - [nebez/floppybird](https://github.com/nebez/floppybird)：原始音效。音效转为 WAV 供浏览器本地播放，保留其 [来源许可](assets/audio/SOURCE-LICENSE)。
 - Flappy Bird 的原始游戏、美术和音效归 Dong Nguyen / .GEARS 所有。这里新写的网页逻辑与原作者无关联。
-- QR Code Generator 1.4.4，Kazuhiko Arase，MIT 许可（保留在 `vendor/qrcode.js` 文件头）。Silkscreen 像素字体使用 SIL Open Font License，见 `assets/fonts/SIL-OFL.txt`。
+- QR Code Generator 1.4.4，Kazuhiko Arase，MIT 许可（保留在 `vendor/qrcode.js` 文件头）。中英文统一使用 [Fusion Pixel](https://github.com/TakWolf/fusion-pixel-font) 12px 像素字体，按 12px 的整数倍显示；字体使用 SIL Open Font License，见 `assets/fonts/FUSION-OFL.txt`。分享图片会等待字体加载后绘制。
 
 `assets/atlas.js` 由 `assets/atlas.txt` 的 1024 × 1024 纹理坐标转换得到，避免直接打开本地文件时需要 fetch。
