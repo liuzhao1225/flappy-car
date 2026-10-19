@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, copyFile, rm, readdir } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
@@ -9,10 +9,11 @@ const output = resolve(root, 'dist');
 const files = [
   'index.html', 'style.css', 'engine.js', 'game.js', 'seed.js',
   'share.html', 'social.js', 'social.css', 'vendor/qrcode.js',
-  'assets/fonts/fusion-pixel-12px.woff2', 'assets/fonts/FUSION-OFL.txt',
+  'assets/fonts/pixel.css', 'assets/fonts/FUSION-OFL.txt',
+  ...(await readdir(resolve(root,'assets/fonts/pixel'))).filter(name=>name.endsWith('.woff2')).map(name=>`assets/fonts/pixel/${name}`),
   'assets/atlas.js', 'assets/atlas.png',
   'assets/roadster.png', 'assets/starship-booster.png', 'assets/dogecoin-medals.png',
-  ...['wing', 'point', 'hit', 'die', 'swooshing'].map(name => `assets/audio/${name}.wav`),
+  ...['wing', 'point', 'hit', 'die', 'swooshing'].map(name => `assets/audio/${name}.mp3`),
   'assets/SOURCE-LICENSE.md', 'assets/audio/SOURCE-LICENSE',
 ];
 const revision = process.env.GITHUB_SHA || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();

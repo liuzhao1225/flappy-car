@@ -8,7 +8,7 @@
   let identity = JSON.parse(localStorage.getItem(identityKey) || 'null');
   let identityPromise, lastResult;
   let currentTab = 'profile', rankScope = 'all';
-  let previousFocus;
+  let previousFocus, peopleView, peopleObserver;
   const modal = document.createElement('dialog'); modal.className = 'social'; modal.id = 'social-dialog';
   modal.innerHTML = `<header class="social-header"><h2>FLAPPY CAR<small>车手俱乐部</small></h2><button class="close" aria-label="关闭车手俱乐部">×</button></header><nav class="social-nav" aria-label="车手俱乐部"><button data-tab="profile">我的车手</button><button data-tab="friends">好友</button><button data-tab="rank">排行榜</button></nav><p class="notice" role="status" aria-live="polite"></p><div class="social-content"></div>`;
   document.body.append(modal);
@@ -75,6 +75,9 @@
   }
   async function renderTab() {
     const content = modal.querySelector('.social-content');
+    peopleObserver?.disconnect();
+    peopleView = null;
+    content.dataset.tab = currentTab;
     modal.querySelector('.social-nav').hidden = currentTab === 'share';
     modal.querySelectorAll('[data-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.tab === currentTab)));
     notice(); content.innerHTML = '<p>读取中…</p>';
@@ -83,12 +86,14 @@
       if (currentTab === 'profile') {
         const me = await api('/me'); saveIdentity({ ...identity, player:me });
         const oldBest = Number(localStorage.getItem("flappy-bird-classic.best") || 0);
-        content.innerHTML = `<h3>${esc(me.name)}</h3><p class="identity">车手 ID · <b>${me.id}</b></p><div class="stats"><div class="stat-box"><small>最高分</small><b class="stat">${me.best}</b></div><div class="stat-box"><small>总榜排名</small><b class="stat">${me.rank ? '#' + me.rank : '—'}</b></div></div>${oldBest > me.best ? `<p class="hint">本机旧纪录 ${oldBest} 分；榜单收录新版上传的成绩。</p>` : ''}<form id="nickname-form"><label for="nickname">昵称</label><div class="form-row"><input id="nickname" value="${esc(me.name)}" maxlength="16" required autocomplete="nickname"><button class="primary" type="submit">保存昵称</button></div></form><div class="actions" style="margin-top:20px">${me.bestRun ? `<button data-action="share" data-id="${me.bestRun}">分享最高分</button>` : ''}${localStorage.getItem(pendingKey) ? '<button data-action="retry">重试上传成绩</button>' : ''}</div><details><summary>换设备 / 恢复车手</summary><p class="hint">恢复码可找回昵称、好友和成绩，请私下保存。清除浏览器数据后需要它恢复身份。</p><button data-action="recovery">查看恢复码</button><code class="recovery" hidden></code><form id="restore-form" style="margin-top:20px"><label for="restore-code">已有恢复码</label><div class="form-row"><input id="restore-code" type="password" autocomplete="off" required placeholder="粘贴恢复码"><button type="submit">恢复车手</button></div></form></details>`;
+        content.innerHTML = `<p class="identity">车手 ID · <b>${me.id}</b></p><div class="stats"><div class="stat-box"><small>最高分</small><b class="stat">${me.best}</b></div><div class="stat-box"><small>总榜排名</small><b class="stat">${me.rank ? '#' + me.rank : '—'}</b></div></div>${oldBest > me.best ? `<p class="hint">本机旧纪录 ${oldBest} 分；榜单收录新版上传的成绩。</p>` : ''}<form id="nickname-form"><label for="nickname">昵称</label><div class="form-row"><input id="nickname" value="${esc(me.name)}" maxlength="16" required autocomplete="nickname"><button class="primary" type="submit">保存昵称</button></div></form><div class="actions" style="margin-top:8px">${me.bestRun ? `<button data-action="share" data-id="${me.bestRun}">分享最高分</button>` : ''}${localStorage.getItem(pendingKey) ? '<button data-action="retry">重试上传成绩</button>' : ''}</div><button class="recovery-entry" data-action="recovery-panel">换设备 / 恢复车手</button>`;
         content.querySelector('#nickname-form').onsubmit = async event => {
           event.preventDefault(); const button = event.submitter; button.disabled = true;
           try { const player = await api('/me', { method:'PATCH', data:{ name:$('#nickname').value } }); saveIdentity({ ...identity, player }); await renderTab(); notice('昵称已保存'); }
           catch (error) { report(error); } finally { button.disabled = false; }
         };
+      } else if (currentTab === 'recovery') {
+        content.innerHTML='<h3>恢复车手</h3><p class="hint">恢复码可找回昵称、好友和成绩，请私下保存。</p><button data-action="recovery">查看我的恢复码</button><code class="recovery" hidden></code><form id="restore-form"><label for="restore-code">已有恢复码</label><div class="form-row"><input id="restore-code" type="password" autocomplete="off" required placeholder="粘贴恢复码"><button type="submit">恢复车手</button></div></form><button class="recovery-entry" data-action="profile">返回车手</button>';
         content.querySelector('#restore-form').onsubmit = async event => {
           event.preventDefault(); const button = event.submitter; button.disabled = true;
           try {
@@ -96,29 +101,34 @@
             const token = $('#restore-code').value.trim();
             if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('恢复码应为 64 位字母和数字');
             const player = await api('/me', { token }); saveIdentity({ token, player }); lastResult = null;
-            await renderTab(); notice('已恢复车手');
+            currentTab='profile'; await renderTab(); notice('已恢复车手');
           } catch (error) { report(error); } finally { button.disabled = false; }
         };
       } else if (currentTab === 'friends') {
         const friends = await api('/friends');
-        content.innerHTML = `<form id="friend-form"><label for="friend-id">添加车手</label><div class="form-row"><input id="friend-id" maxlength="8" required placeholder="输入 8 位车手 ID" autocomplete="off" autocapitalize="characters"><button type="submit" class="primary">查找</button></div></form><div id="friend-result"></div><div class="list">${friends.length ? friends.map(friend => person(friend, 'friend')).join('') : '<p class="empty">还没有好友。输入 ID，或打开好友的分享卡添加。</p>'}</div>`;
+        content.innerHTML = `<form id="friend-form"><label for="friend-id">添加车手</label><div class="form-row"><input id="friend-id" maxlength="8" required placeholder="输入 8 位车手 ID" autocomplete="off" autocapitalize="characters"><button type="submit" class="primary">查找</button></div></form><div id="friend-result"></div>${people(friends,'friend')}`;
         content.querySelector('#friend-form').onsubmit = async event => {
           event.preventDefault(); const button = event.submitter; button.disabled = true;
           try {
             const id = $('#friend-id').value.trim().toUpperCase();
             if (!/^[A-F0-9]{8}$/.test(id)) throw new Error('请输入 8 位车手 ID');
             const player = await api(`/players/${id}`);
-            $('#friend-result').innerHTML = `<div class="list">${person({ ...player, ...player.relation }, 'search')}</div>`; attachActions($('#friend-result'));
+            $('#friend-result').innerHTML = `<div class="list">${person({ ...player, ...player.relation }, 'search')}</div>`; attachActions($('#friend-result')); layoutPeople();
           } catch (error) { report(error); } finally { button.disabled = false; }
         };
       } else if (currentTab === 'rank') {
         const result = await api(`/leaderboard?scope=${rankScope}`);
-        content.innerHTML = `<div class="actions"><button data-action="rank-all" aria-pressed="${rankScope === 'all'}">总榜</button><button data-action="rank-friends" aria-pressed="${rankScope === 'friends'}">好友榜</button></div><p class="hint">按最高分排名，同分并列。显示前 100 名。</p><div class="list">${result.players.length ? result.players.map(p => person(p, 'rank')).join('') : '<p class="empty">完成一局飞行后即可上榜。</p>'}</div>${result.me?.rank ? `<p class="hint">我的最高分 ${result.me.best} · 总榜第 ${result.me.rank} 名</p>` : ''}`;
+        content.innerHTML = `<div class="actions"><button data-action="rank-all" aria-pressed="${rankScope === 'all'}">总榜</button><button data-action="rank-friends" aria-pressed="${rankScope === 'friends'}">好友榜</button></div><p class="hint">按最高分排名，同分并列。显示前 100 名。</p>${people(result.players,'rank')}${result.me?.rank ? `<p class="hint">我的最高分 ${result.me.best} · 总榜第 ${result.me.rank} 名</p>` : ''}`;
       } else if (currentTab === 'share') {
         if (!lastResult) throw new Error('请先完成一局游戏');
         await renderShare(content, lastResult, true);
       }
       attachActions(content);
+      if (content.querySelector('[data-people]')) {
+        layoutPeople();
+        peopleObserver=new ResizeObserver(layoutPeople);
+        peopleObserver.observe(content.querySelector('[data-people]'));
+      }
     } catch (error) { content.innerHTML = '<button data-action="reload">重新读取</button>'; attachActions(content); report(error); }
   }
   function person(player, type) {
@@ -133,7 +143,33 @@
     }
     return `<div class="person" data-me="${self}">${type === 'rank' ? `<b class="rank">${player.rank}</b>` : ''}<div class="name"><b>${esc(player.name)}${self ? ' · 我' : ''}</b><small>ID ${player.id}</small></div><strong>${player.best}</strong>${controls}</div>`;
   }
+  function people(players, type) {
+    peopleView = { players, type, page:0 };
+    return '<div class="list" data-people></div><nav class="pagination" aria-label="列表翻页"><button data-page="-1">上一页</button><span data-page-count></span><button data-page="1">下一页</button></nav>';
+  }
+  function layoutPeople() {
+    if (!peopleView) return;
+    const list=modal.querySelector('[data-people]');
+    if (!list) return;
+    const pager=modal.querySelector('.pagination');
+    pager.hidden=!peopleView.players.length;
+    if (!peopleView.players.length) { list.innerHTML='<p class="empty">暂无车手</p>'; return; }
+    const styles=getComputedStyle(list), row=Number.parseFloat(styles.getPropertyValue('--person-height')), gap=Number.parseFloat(styles.rowGap);
+    const size=Math.max(1,Math.floor((list.clientHeight+gap)/(row+gap)));
+    const pages=Math.ceil(peopleView.players.length/size);
+    peopleView.page=Math.min(peopleView.page,pages-1);
+    list.innerHTML=peopleView.players.slice(peopleView.page*size,(peopleView.page+1)*size).map(p=>person(p,peopleView.type)).join('');
+    pager.querySelector('[data-page-count]').textContent=`${peopleView.page+1} / ${pages}`;
+    pager.querySelectorAll('button').forEach(button=>{
+      const step=Number(button.dataset.page);
+      button.disabled=step<0 ? peopleView.page===0 : peopleView.page===pages-1;
+      button.onclick=()=>{ peopleView.page+=step; layoutPeople(); };
+    });
+    attachActions(list);
+  }
+  window.addEventListener('resize',layoutPeople);
   async function action(name, id, root) {
+    if (name === 'recovery-panel' || name === 'profile') { currentTab=name==='profile' ? 'profile' : 'recovery'; return renderTab(); }
     if (name === 'reload') return renderTab();
     if (name === 'recovery') { const field = root.querySelector('.recovery'); field.textContent = identity.token; field.hidden = !field.hidden; return; }
     if (name === 'retry') { await submitPending(); await renderTab(); notice('成绩已上传'); return; }
@@ -176,21 +212,31 @@
     }
   }
   const loadImage = source => new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(`无法读取分享素材 ${source}`)); image.src = source; });
+  let qrLoading;
+  function loadQRCode() {
+    if (!qrLoading) qrLoading = new Promise((resolve,reject) => {
+      const script=document.createElement('script'); script.src='vendor/qrcode.js';
+      script.onload=resolve; script.onerror=()=>reject(new Error('二维码组件加载失败'));
+      document.head.append(script);
+    });
+    return qrLoading;
+  }
   async function paintCard(canvas, result, url) {
     const [car, medals, fonts] = await Promise.all([
       loadImage('assets/roadster.png'), loadImage('assets/dogecoin-medals.png'),
-      document.fonts.load('12px "Fusion Pixel"'),
+      document.fonts.load('12px "Flappy Pixel"',result.player.name+' 本次飞行最高分总榜排名扫码开始铂金黄金白银青铜解锁'),
+      loadQRCode(),
     ]);
     if (!fonts.length) throw new Error('像素字体未加载，无法生成分享图');
     const ctx = canvas.getContext('2d'); canvas.width = 360; canvas.height = 480; ctx.imageSmoothingEnabled = false;
     const fill = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x,y,w,h); };
     const lettering = document.createElement('canvas'), ink = lettering.getContext('2d');
     const text = (value,x,y,size=12,color='#273849') => {
-      ink.font='12px "Fusion Pixel"';
+      ink.font='12px "Flappy Pixel"';
       const metrics=ink.measureText(value), ascent=Math.ceil(metrics.fontBoundingBoxAscent);
       lettering.width=Math.ceil(metrics.width);
       lettering.height=ascent+Math.ceil(metrics.fontBoundingBoxDescent);
-      ink.font='12px "Fusion Pixel"'; ink.fillStyle=color; ink.fillText(value,0,ascent);
+      ink.font='12px "Flappy Pixel"'; ink.fillStyle=color; ink.fillText(value,0,ascent);
       // Rasterize once on the native grid; keep exported glyphs free of blended edges.
       const pixels=ink.getImageData(0,0,lettering.width,lettering.height);
       for (let i=3;i<pixels.data.length;i+=4) pixels.data[i]=pixels.data[i]>=128 ? 255 : 0;
@@ -202,7 +248,7 @@
     fill('#4ec0ca',4,4,352,57); fill('#273849',4,61,352,3);
     bitmap(ctx,'FLAPPY CAR',20,20,3,'#273849');
     // The font uses a native 12 px grid. Keep every label at 12 px or 24 px.
-    ctx.font='24px "Fusion Pixel"';
+    ctx.font='24px "Flappy Pixel"';
     const nameSize=ctx.measureText(result.player.name).width <= 320 ? 24 : 12;
     text(result.player.name,20,90,nameSize); text(`ID ${result.player.id}`,20,110,12,'#64767b');
     text('本次飞行',20,143,12);
@@ -221,16 +267,16 @@
     fill('#273849',4,344,352,3);
     text('最高分',20,370,12,'#64767b'); text(String(result.player.best),20,397,24);
     text('总榜排名',120,370,12,'#64767b'); text(result.player.rank ? `#${result.player.rank}` : '—',120,397,24);
-    text('扫码挑战 · 添加好友',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
-    const qr = qrcode(0,'M'); qr.addData(url); qr.make();
+    text('扫码开始飞行',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
+    const qr = qrcode(0,'M'); qr.addData(new URL('./',url).href); qr.make();
     const count = qr.getModuleCount(), scale = 2, side = (count+8)*scale, left = 344-side, top = 464-side;
     fill('#ffffff',left,top,side,side); ctx.fillStyle='#000000';
     for (let y=0;y<count;y++) for(let x=0;x<count;x++) if(qr.isDark(y,x)) ctx.fillRect(left+(x+4)*scale,top+(y+4)*scale,scale,scale);
-    canvas.setAttribute('aria-label',`${result.player.name}，本次 ${result.score} 分，最高 ${result.player.best} 分，车手 ID ${result.player.id}。扫码可打开此成绩。`);
+    canvas.setAttribute('aria-label',`${result.player.name}，本次 ${result.score} 分，最高 ${result.player.best} 分，车手 ID ${result.player.id}。扫码开始飞行。`);
   }
   async function renderShare(root,result,own) {
     const url=resultURL(result.id);
-    root.innerHTML=`<div class="share-layout"><canvas class="share-card" width="360" height="480" role="img"></canvas><div><h3>${own ? '分享这次飞行' : esc(result.player.name)+' 的飞行'}</h3><p>${own ? '我飞过了' : '飞过了'} <b>${result.score}</b> 组星舰喷口</p><p class="hint player-id">车手 ID · ${result.player.id}</p><div class="actions"><button class="primary" data-save-card>保存分享图</button><button data-copy-link>复制挑战链接</button>${!own && result.player.id !== identity?.player.id ? `<button data-action="add" data-id="${result.player.id}">添加好友</button>` : ''}<a class="button" href="./">${own ? '继续飞行' : '接受挑战'}</a></div><input class="link-field" aria-label="挑战链接" readonly value="${esc(url)}"><div class="result-meta"><p class="hint">${new Date(result.finishedAt).toLocaleString('zh-CN')}</p></div></div></div><figure class="export-preview" hidden><figcaption>长按图片可保存</figcaption><img alt="可保存的完整分享卡"><a class="button" download>下载 PNG</a></figure>`;
+    root.innerHTML=`<div class="share-layout"><div class="share-art"><canvas class="share-card" width="360" height="480" role="img"></canvas><img class="export-image" alt="可保存的完整分享卡" hidden></div><div class="share-info"><h3>${own ? '分享这次飞行' : esc(result.player.name)+' 的飞行'}</h3><p>${own ? '我飞过了' : '飞过了'} <b>${result.score}</b> 组星舰喷口</p><p class="hint player-id">车手 ID · ${result.player.id}</p><div class="actions"><button class="primary" data-save-card>保存分享图</button><button data-copy-link>复制挑战链接</button>${!own && result.player.id !== identity?.player.id ? `<button data-action="add" data-id="${result.player.id}">添加好友</button>` : ''}<a class="button" href="./">${own ? '继续飞行' : '接受挑战'}</a></div><input class="link-field" aria-label="挑战链接" readonly value="${esc(url)}"><div class="result-meta"><p class="hint">${new Date(result.finishedAt).toLocaleString('zh-CN')}</p></div></div></div>`;
     const canvas=root.querySelector('canvas'); await paintCard(canvas,result,url);
     root.querySelector('[data-copy-link]').onclick=async()=>{
       try { await navigator.clipboard.writeText(url); notice('挑战链接已复制',false,root.closest('.share-shell')||modal); }
@@ -241,8 +287,8 @@
         const output=document.createElement('canvas'); output.width=1080; output.height=1440;
         const context=output.getContext('2d'); context.imageSmoothingEnabled=false; context.drawImage(canvas,0,0,1080,1440);
         const address=output.toDataURL('image/png');
-        const preview=root.querySelector('.export-preview'); preview.hidden=false; preview.querySelector('img').src=address;
-        const link=preview.querySelector('a'); link.href=address; link.download=`Flappy-Car-${result.player.id}-${result.score}.png`; link.click();
+        const preview=root.querySelector('.export-image'); preview.hidden=false; preview.src=address; canvas.hidden=true;
+        const link=document.createElement('a'); link.href=address; link.download=`Flappy-Car-${result.player.id}-${result.score}.png`; link.click();
       } catch(error) { report(error,root.closest('.share-shell')||modal); }
     };
     attachActions(root);

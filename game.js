@@ -13,7 +13,7 @@
   const dogecoinMedals = new Image();
   const exhaustDuration = 18;
   const sounds = {};
-  const activeSounds = new Set();
+  let audioContext, soundGain, audioLoading;
   const bestKey = 'flappy-bird-classic.best';
   let game;
   let failed = false;
@@ -32,7 +32,9 @@
     if (starting) return;
     starting = true;
     try {
-      round = await FlappySocial.prepareRound();
+      // Resume audio inside the tap gesture, while the ranked round loads.
+      const audioReady = prepareAudio();
+      [round] = await Promise.all([FlappySocial.prepareRound(), audioReady]);
       game.random = flappyRandom(round.seed);
       roundFrames = 0; flaps = []; recording = false;
       game.ready();
@@ -66,39 +68,30 @@
     });
   }
 
-  function loadSound(name) {
-    const pool = Array.from({ length: 4 }, () => {
-      const audio = new Audio(`assets/audio/${name}.wav`);
-      audio.preload = 'auto';
-      audio.volume = 0.55;
-      return audio;
-    });
-    sounds[name] = pool;
-    return Promise.all(pool.map(audio => new Promise((resolve, reject) => {
-      audio.addEventListener('canplaythrough', resolve, { once: true });
-      audio.addEventListener('error', () => reject(new Error(`无法读取音效 ${name}.wav`)), { once: true });
-      audio.load();
-    })));
+  async function prepareAudio() {
+    if (!audioContext) {
+      audioContext = new AudioContext();
+      soundGain = audioContext.createGain();
+      soundGain.gain.value = muted ? 0 : 0.55;
+      soundGain.connect(audioContext.destination);
+    }
+    const resumed = audioContext.resume();
+    if (!audioLoading) audioLoading = Promise.all(['wing', 'point', 'hit', 'die', 'swooshing'].map(async name => {
+      const response = await fetch(`assets/audio/${name}.mp3`);
+      if (!response.ok) throw new Error(`无法读取音效 ${name}.mp3：${response.status}`);
+      sounds[name] = await audioContext.decodeAudioData(await response.arrayBuffer());
+    }));
+    await Promise.all([resumed, audioLoading]);
   }
 
   function playSound(name) {
     if (muted) return;
-    // Reserve a voice until it ends, including the pending play() interval.
-    let audio = sounds[name].find(item => !activeSounds.has(item));
-    if (!audio) {
-      audio = sounds[name][0].cloneNode();
-      audio.volume = 0.55;
-      sounds[name].push(audio);
-    }
-    activeSounds.add(audio);
-    const release = () => activeSounds.delete(audio);
-    audio.addEventListener('ended', release, { once: true });
-    audio.currentTime = 0;
-    audio.play().catch(error => {
-      release();
-      audio.removeEventListener('ended', release);
-      reportFailure(new Error(`音效 ${name} 播放失败：${error.message}`));
-    });
+    if (!sounds[name]) throw new Error(`音效 ${name} 尚未加载`);
+    const voice = audioContext.createBufferSource();
+    voice.buffer = sounds[name];
+    voice.connect(soundGain);
+    voice.onended = () => voice.disconnect();
+    voice.start();
   }
 
   function handleEvents() {
@@ -184,20 +177,31 @@
     Y: ['10001','10001','01010','00100','00100','00100','00100'],
   };
 
+  const textSprites = new Map();
   function pixelText(text, center, y, scale, color) {
-    const left = Math.round(center - (text.length * 6 - 1) * scale / 2);
+    const key = `${text}:${scale}:${color}`;
+    if (textSprites.has(key)) {
+      const image = textSprites.get(key);
+      context.drawImage(image, Math.round(center - (image.width - 2) / 2) - 1, y - 1);
+      return;
+    }
+    const image = document.createElement('canvas');
+    image.width = (text.length * 6 - 1) * scale + 2; image.height = 7 * scale + 3;
+    const pen = image.getContext('2d');
     const paint = (dx, dy, fill) => {
-      context.fillStyle = fill;
+      pen.fillStyle = fill;
       [...text].forEach((letter, index) => {
         letters[letter].forEach((row, rowIndex) => {
           [...row].forEach((pixel, column) => {
-            if (pixel === '1') context.fillRect(left + (index * 6 + column) * scale + dx, y + rowIndex * scale + dy, scale, scale);
+            if (pixel === '1') pen.fillRect(1 + (index * 6 + column) * scale + dx, 1 + rowIndex * scale + dy, scale, scale);
           });
         });
       });
     };
     for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 2]]) paint(dx, dy, '#293739');
     paint(0, 0, color);
+    textSprites.set(key, image);
+    context.drawImage(image, Math.round(center - (image.width - 2) / 2) - 1, y - 1);
   }
 
   function drawTitle(y) {
@@ -273,7 +277,7 @@
       number(0, 144, 44);
     } else if (game.state === 'playing') {
       number(game.score, 144, 44);
-      container.dataset.score = String(game.score);
+      if (container.dataset.score !== String(game.score)) container.dataset.score = String(game.score);
     } else if (game.state === 'dying') {
       const opacity = Math.max(0, 1 - game.deathFrames / 12);
       context.fillStyle = `rgba(255,255,255,${opacity})`;
@@ -354,8 +358,7 @@
       act(() => game.togglePause());
     } else if (event.code === 'KeyM') {
       muted = !muted;
-      // Muting must not cancel a pending play() promise with pause().
-      Object.values(sounds).flat().forEach(audio => { audio.muted = muted; });
+      if (soundGain) soundGain.gain.value = muted ? 0 : 0.55;
       announcement.textContent = muted ? '音效已关闭' : '音效已开启';
     }
   });
@@ -372,10 +375,17 @@
   function frame(time) {
     if (failed) return;
     try {
+      if (document.hidden || FlappySocial.isOpen()) {
+        previousTime = undefined;
+        requestAnimationFrame(frame);
+        return;
+      }
       if (previousTime !== undefined) accumulatedTime += Math.min(time - previousTime, 100);
       previousTime = time;
       const stepDuration = 1000 / CONFIG.fps;
+      let advanced = false;
       while (accumulatedTime >= stepDuration) {
+        advanced = true;
         const active = recording && !game.paused;
         game.step();
         if (active) {
@@ -388,12 +398,12 @@
         accumulatedTime -= stepDuration;
       }
       handleEvents();
-      render();
+      if (advanced && !game.paused) render();
       requestAnimationFrame(frame);
     } catch (error) { reportFailure(error); }
   }
 
-  Promise.all([loadTexture(texture, 'assets/atlas.png'), loadTexture(roadster, 'assets/roadster.png'), loadTexture(booster, 'assets/starship-booster.png'), loadTexture(dogecoinMedals, 'assets/dogecoin-medals.png'), ...['wing', 'point', 'hit', 'die', 'swooshing'].map(loadSound)])
+  Promise.all([loadTexture(texture, 'assets/atlas.png'), loadTexture(roadster, 'assets/roadster.png'), loadTexture(booster, 'assets/starship-booster.png'), loadTexture(dogecoinMedals, 'assets/dogecoin-medals.png')])
     .then(() => {
       const saved = localStorage.getItem(bestKey);
       const best = saved === null ? 0 : Number(saved);

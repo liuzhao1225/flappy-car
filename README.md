@@ -54,8 +54,13 @@ GitHub Pages 绑定 `flappy-car.xiaoke.ai`，Cloudflare DNS 的同名 CNAME 指�
 
 - [FlappyRecreator/FlappyB64bitAndroid](https://github.com/FlappyRecreator/FlappyB64bitAndroid)：原版精灵图集及坐标，保留其 [来源许可](assets/SOURCE-LICENSE.md)。本项目为本地个人学习复刻。
 - [THEN00P/reFlappy](https://github.com/THEN00P/reFlappy)：原版反混淆物理与场景规则依据，具体版本和文件链接见 [PHYSICS.md](PHYSICS.md)。
-- [nebez/floppybird](https://github.com/nebez/floppybird)：原始音效。音效转为 WAV 供浏览器本地播放，保留其 [来源许可](assets/audio/SOURCE-LICENSE)。
+- [nebez/floppybird](https://github.com/nebez/floppybird)：原始音效。保留 WAV 源文件，网页使用压缩 MP3 和 Web Audio 播放，见 [来源许可](assets/audio/SOURCE-LICENSE)。
 - Flappy Bird 的原始游戏、美术和音效归 Dong Nguyen / .GEARS 所有。这里新写的网页逻辑与原作者无关联。
-- QR Code Generator 1.4.4，Kazuhiko Arase，MIT 许可（保留在 `vendor/qrcode.js` 文件头）。中英文统一使用 [Fusion Pixel](https://github.com/TakWolf/fusion-pixel-font) 12px 像素字体，按 12px 的整数倍显示；字体使用 SIL Open Font License，见 `assets/fonts/FUSION-OFL.txt`。分享图片会等待字体加载后绘制。
+- QR Code Generator 1.4.4，Kazuhiko Arase，MIT 许可（保留在 `vendor/qrcode.js` 文件头）。二维码直接打开游戏首页，复制的成绩链接仍可查看成绩并添加好友。
+- 中英文字体来自 [Fusion Pixel](https://github.com/TakWolf/fusion-pixel-font)，按原生 12px 整数倍绘制。按 SIL OFL 要求，分片后的派生字体重命名为 Flappy Pixel；保留 `assets/fonts/FUSION-OFL.txt`。首屏只加载约 10 KB 的界面字符，昵称所需汉字按需加载。分享图片等待对应字形加载后绘制。
+
+字体分片可通过 `.venv/bin/pip install --index-url https://mirrors.aliyun.com/pypi/simple/ -r scripts/requirements-fonts.txt` 和 `.venv/bin/python scripts/build-fonts.py` 重建。音效可运行 `node scripts/build-audio.mjs` 重建，需要 FFmpeg。
+
+手机页面按视口高度排版，好友和排行榜翻页展示。分享图保存后原位显示，支持长按保存。开始画面仅等待图像，首次点击开始时并行加载音效和比赛数据；弹层打开时停止后台游戏绘制，高刷新率屏幕的绘制频率跟随 60 Hz 物理步长。
 
 `assets/atlas.js` 由 `assets/atlas.txt` 的 1024 × 1024 纹理坐标转换得到，避免直接打开本地文件时需要 fetch。
