@@ -1,0 +1,12 @@
+{
+  "name": "flappy-car",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A dependency-free pixel Roadster flying game",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node server.mjs",
+    "build": "node scripts/build-site.mjs",
+    "test": "node --test tests/*.test.cjs"
+  }
+}

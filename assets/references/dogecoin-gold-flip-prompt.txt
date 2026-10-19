@@ -1,0 +1,5 @@
+Tool mode: built-in imagegen edit.
+Input: user-selected dogecoin-gold-design image, supplied again as codex-clipboard-f4ea6bea-f074-48f3-b6a5-2c23e67ea025.png.
+Output: dogecoin-gold-design-left.png.
+
+Edit the supplied image with exactly ONE change: flip the ENTIRE image HORIZONTALLY (mirror left-to-right). The Doge portrait must now face LEFT instead of RIGHT. Preserve the complete gold coin, its exact overall silhouette, stepped pixel shapes, face proportions, asymmetric eyes, nose, mouth expression, ear shapes, engraved gold relief, original color palette, texture and lighting, in their mirrored positions. Do not redraw, redesign, simplify, recolor, rescale, add text, add symbols, or add/remove any element. No D or Ð letter. Maintain the same square composition and transparent background. Treat this as an exact horizontal mirror operation of the selected artwork, not a new design.
