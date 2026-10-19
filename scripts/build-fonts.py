@@ -1,5 +1,7 @@
 """Build demand-loaded pixel font subsets. Requires fonttools[woff]."""
 from pathlib import Path
+from hashlib import sha256
+import re
 from fontTools import subset
 from fontTools.ttLib import TTFont
 
@@ -43,8 +45,15 @@ for name, points in groups.items():
     for record in font['name'].names:
         if record.nameID in [1, 3, 4, 6, 16]:
             record.string = ('FlappyPixel-Regular' if record.nameID == 6 else 'Flappy Pixel').encode(record.getEncoding())
-    font.save(output / f'{name}.woff2')
+    font.recalcTimestamp = False
+    path = output / f'{name}.woff2'
+    font.save(path)
+    version = sha256(path.read_bytes()).hexdigest()[:12]
     css.append('@font-face{font-family:"Flappy Pixel";font-style:normal;font-weight:400;font-display:swap;'
-               f'src:url("pixel/{name}.woff2") format("woff2");unicode-range:{ranges(points)};}}')
+               f'src:url("pixel/{name}.woff2?v={version}") format("woff2");unicode-range:{ranges(points)};}}')
 (root / 'assets/fonts/pixel.css').write_text('\n'.join(css) + '\n')
+ui_version = sha256((output / 'ui.woff2').read_bytes()).hexdigest()[:12]
+for name in ['index.html', 'share.html']:
+    path = root / name
+    path.write_text(re.sub(r'assets/fonts/pixel/ui\.woff2(?:\?v=[a-f0-9]+)?', f'assets/fonts/pixel/ui.woff2?v={ui_version}', path.read_text()))
 print(f'{len(ui)} UI glyphs: {(output / "ui.woff2").stat().st_size} bytes; {len(groups)-1} demand-loaded subsets')
