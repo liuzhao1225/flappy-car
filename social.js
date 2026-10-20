@@ -295,20 +295,47 @@
   }
   async function renderShare(root,result,own) {
     const url=resultURL(result.id);
-    root.innerHTML=`<div class="share-layout"><div class="share-art"><canvas class="share-card" width="360" height="480" role="img"></canvas><img class="export-image" alt="可保存的完整分享卡" hidden></div><div class="share-info"><h3>${own ? '分享这次飞行' : esc(result.player.name)+' 的飞行'}</h3><p>${own ? '我飞过了' : '飞过了'} <b>${result.score}</b> 组星舰喷口</p><p class="hint player-id">车手 ID · ${result.player.id}</p><div class="actions"><button class="primary" data-save-card>保存分享图</button><button data-copy-link>复制挑战链接</button>${!own && result.player.id !== identity?.player.id ? `<button data-action="add" data-id="${result.player.id}">添加好友</button>` : ''}<a class="button" href="./">${own ? '继续飞行' : '接受挑战'}</a></div><input class="link-field" aria-label="挑战链接" readonly value="${esc(url)}"><div class="result-meta"><p class="hint">${new Date(result.finishedAt).toLocaleString('zh-CN')}</p></div></div></div>`;
+    root.innerHTML=`<div class="share-layout"><div class="share-art"><canvas class="share-card" width="360" height="480" role="img"></canvas><img class="export-image" alt="可保存的完整分享卡" hidden></div><div class="share-info"><h3>${own ? '分享这次飞行' : esc(result.player.name)+' 的飞行'}</h3><p>${own ? '我飞过了' : '飞过了'} <b>${result.score}</b> 组星舰喷口</p><p class="hint player-id">车手 ID · ${result.player.id}</p><div class="save-hint hint" hidden>长按图片，选择“保存图片”存入相册。</div><div class="actions"><button class="primary" data-save-card disabled>正在生成图片…</button><button data-copy-link>复制挑战链接</button>${!own && result.player.id !== identity?.player.id ? `<button data-action="add" data-id="${result.player.id}">添加好友</button>` : ''}<a class="button" href="./">${own ? '继续飞行' : '接受挑战'}</a></div><input class="link-field" aria-label="挑战链接" readonly value="${esc(url)}"><div class="result-meta"><p class="hint">${new Date(result.finishedAt).toLocaleString('zh-CN')}</p></div></div></div>`;
     const canvas=root.querySelector('canvas'); await paintCard(canvas,result,url);
+    // Prepare the PNG before the tap: native sharing needs transient activation.
+    const output=document.createElement('canvas'); output.width=1080; output.height=1440;
+    const context=output.getContext('2d'); context.imageSmoothingEnabled=false; context.drawImage(canvas,0,0,1080,1440);
+    const blob=await new Promise((resolve,reject)=>output.toBlob(value=>value ? resolve(value) : reject(new Error('分享图片生成失败')),'image/png'));
+    const file=new File([blob],`Flappy-Car-${result.player.id}-${result.score}.png`,{type:'image/png'});
+    const address=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=()=>reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
+    const preview=root.querySelector('.export-image');
+    preview.src=address; preview.alt=canvas.getAttribute('aria-label');
+    await preview.decode();
+    preview.hidden=false; canvas.hidden=true;
+    const mobile=navigator.maxTouchPoints>0 || matchMedia('(pointer: coarse)').matches;
+    const wechat=/MicroMessenger/i.test(navigator.userAgent);
+    const nativeSave=mobile && !wechat && !!navigator.share && !!navigator.canShare?.({files:[file]});
+    const save=root.querySelector('[data-save-card]'), noticeRoot=root.closest('.share-shell')||modal;
+    root.querySelector('.save-hint').hidden=!mobile;
+    save.hidden=mobile && !nativeSave;
+    save.textContent=mobile ? '保存到照片' : '下载分享图';
+    save.disabled=false;
     root.querySelector('[data-copy-link]').onclick=async()=>{
       try { await navigator.clipboard.writeText(url); notice('挑战链接已复制',false,root.closest('.share-shell')||modal); }
       catch(error) { report(new Error(`复制失败：${error.message}。可手动复制下方链接。`),root.closest('.share-shell')||modal); }
     };
-    root.querySelector('[data-save-card]').onclick=async()=>{
+    save.onclick=async()=>{
       try {
-        const output=document.createElement('canvas'); output.width=1080; output.height=1440;
-        const context=output.getContext('2d'); context.imageSmoothingEnabled=false; context.drawImage(canvas,0,0,1080,1440);
-        const address=output.toDataURL('image/png');
-        const preview=root.querySelector('.export-image'); preview.hidden=false; preview.src=address; canvas.hidden=true;
-        const link=document.createElement('a'); link.href=address; link.download=`Flappy-Car-${result.player.id}-${result.score}.png`; link.click();
-      } catch(error) { report(error,root.closest('.share-shell')||modal); }
+        if (nativeSave) {
+          notice('请在系统菜单中选择“存储图像”或“保存图片”。',false,noticeRoot);
+          await navigator.share({files:[file]});
+        } else if (!mobile) {
+          const link=document.createElement('a'); link.href=address; link.download=file.name; link.click();
+        }
+      } catch(error) {
+        if (error.name==='AbortError') notice('保存已取消，或没有可用的保存方式。可长按图片保存。',false,noticeRoot);
+        else report(new Error(`打开保存菜单失败（${error.name}）：${error.message}。可长按图片保存。`),noticeRoot);
+      }
     };
     attachActions(root);
   }

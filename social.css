@@ -59,6 +59,8 @@ dialog.social::backdrop { background:#14293be8; }
 .share-layout { display:grid; grid-template-columns:minmax(0,360px) minmax(0,1fr); align-items:center; gap:24px; flex:1; min-height:0; }
 .share-art { display:flex; justify-content:center; align-items:center; height:100%; min-height:0; min-width:0; }
 .share-art canvas, .share-art img { display:block; width:100%; height:auto; max-height:100%; object-fit:contain; image-rendering:pixelated; }
+.share-art .export-image { -webkit-touch-callout:default; user-select:auto; -webkit-user-select:auto; touch-action:auto; }
+.share-info .save-hint { margin-bottom:var(--space); }
 .share-info { min-width:0; }
 .share-layout .actions { align-items:stretch; flex-direction:column; }
 .share-layout .player-id { user-select:all; }
