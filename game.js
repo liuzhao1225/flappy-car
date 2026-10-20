@@ -13,12 +13,15 @@
   const dogecoinMedals = new Image();
   const exhaustDuration = 18;
   const sounds = {};
+  const exhaustFrames = [];
+  const exhaustColors = ['#659eae', '#c3eff0', '#ffffff', '#e5f6f4'];
   let audioContext, soundGain, audioLoading;
   const bestKey = 'flappy-bird-classic.best';
   let game;
   let failed = false;
   let muted = false;
   const clock = new FlappyClock(CONFIG.fps);
+  const motion = new FlappyMotion();
   let previousControls = '';
   let pressed = '';
   let starting = false;
@@ -37,6 +40,7 @@
       game.random = flappyRandom(round.seed);
       roundFrames = 0; flaps = []; recording = false;
       game.ready();
+      motion.reset();
       handleEvents(); render();
       canvas.focus({ preventScroll: true });
     } catch (error) { FlappySocial.reportGameError(error); }
@@ -121,12 +125,18 @@
     }
   }
 
-  function drawRoadster(x = game.bird.x, y = game.bird.y) {
+  function drawRoadster(x = game.bird.x, y = motion.y) {
     context.save();
     context.translate(Math.round(x), Math.round(y));
-    context.rotate(game.bird.angle * Math.PI / 180);
+    context.rotate(motion.angle * Math.PI / 180);
     if (game.state === 'playing' && game.bird.flapTicks < exhaustDuration) {
-      drawExhaust(game.bird.flapTicks);
+      const exhaust = exhaustFrames[game.bird.flapTicks];
+      for (let layer = 0; layer < exhaust.paths.length; layer++) {
+        context.fillStyle = exhaustColors[layer];
+        context.globalAlpha = layer === 3 ? exhaust.opacity : 1;
+        context.fill(exhaust.paths[layer]);
+      }
+      context.globalAlpha = 1;
     }
     context.drawImage(roadster, -roadster.width / 2, -roadster.height / 2);
     context.restore();
@@ -141,7 +151,8 @@
     context.restore();
   }
 
-  function drawExhaust(age) {
+  function createExhaust(age) {
+    const paths = exhaustColors.map(() => new Path2D());
     const pulse = Math.floor(age / 2) % 3;
     const strength = Math.min(1, (exhaustDuration - age) / 7);
     const length = Math.round((19 + [0, 4, -2][pulse]) * strength);
@@ -150,19 +161,14 @@
     for (const column of [3, 37]) {
       const x = column - roadster.width / 2;
       const y = 16 - roadster.height / 2;
-      context.fillStyle = '#659eae';
-      context.fillRect(x - 1, y + 2, 4, Math.max(2, length - 3));
-      context.fillStyle = '#c3eff0';
-      context.fillRect(x, y, 2, length);
-      context.fillStyle = '#ffffff';
-      context.fillRect(x + 1, y, 1, Math.max(2, length - 4));
-      context.globalAlpha = strength * 0.65;
-      context.fillStyle = '#e5f6f4';
-      context.fillRect(x - 3 - pulse, y + length, 3, 3);
-      context.fillRect(x + 2 + pulse, y + length + 2, 3, 2);
-      context.fillRect(x - 1, y + length + 5 + pulse, 3, 2);
-      context.globalAlpha = 1;
+      paths[0].rect(x - 1, y + 2, 4, Math.max(2, length - 3));
+      paths[1].rect(x, y, 2, length);
+      paths[2].rect(x + 1, y, 1, Math.max(2, length - 4));
+      paths[3].rect(x - 3 - pulse, y + length, 3, 3);
+      paths[3].rect(x + 2 + pulse, y + length + 2, 3, 2);
+      paths[3].rect(x - 1, y + length + 5 + pulse, 3, 2);
     }
+    return { paths, opacity: strength * 0.65 };
   }
 
   const letters = {
@@ -255,16 +261,19 @@
     if (game.paused) announcement.textContent = '已暂停。点击画面或按 P 继续。';
   }
 
-  function render() {
+  function render(fraction = 1) {
+    motion.update(game, fraction);
     context.imageSmoothingEnabled = false;
     context.save();
     sprite(`bg_${game.theme}`, 0, 0);
     for (const pipe of game.pipes) {
-      drawBooster(pipe.x, pipe.top);
-      drawBooster(pipe.x, pipe.top + CONFIG.gap, true);
+      const x = Math.round(pipe.x + motion.pipeOffset);
+      if (x >= CONFIG.width || x + booster.width <= 0) continue;
+      drawBooster(x, pipe.top);
+      drawBooster(x, pipe.top + CONFIG.gap, true);
     }
-    if (game.state !== 'scores') drawRoadster(game.state === 'home' ? 144 : game.bird.x, game.state === 'home' ? game.bird.y - CONFIG.birdY + 228 : game.bird.y);
-    sprite('land', -game.groundOffset, CONFIG.ground);
+    if (game.state !== 'scores') drawRoadster(game.state === 'home' ? 144 : game.bird.x, game.state === 'home' ? motion.y - CONFIG.birdY + 228 : motion.y);
+    sprite('land', -motion.groundOffset, CONFIG.ground);
 
     if (game.state === 'home') {
       drawTitle(139);
@@ -311,6 +320,7 @@
     if (!game || failed) return;
     try {
       action();
+      if (game.paused) motion.reset();
       handleEvents();
       if (game.state !== 'playing' || game.paused) render();
     } catch (error) { reportFailure(error); }
@@ -366,20 +376,23 @@
     if (!game || failed) return;
     if ((game.state === 'playing' || game.state === 'ready') && !game.paused) act(() => game.togglePause());
     clock.reset();
+    motion.reset();
   }
   document.addEventListener('visibilitychange', () => { if (document.hidden) pauseWhenHidden(); });
   window.addEventListener('blur', pauseWhenHidden);
 
   function frame(time) {
     if (failed) return;
+    requestAnimationFrame(frame);
     try {
       if (document.hidden || FlappySocial.isOpen() || game.paused) {
         clock.reset();
-        requestAnimationFrame(frame);
+        motion.reset();
         return;
       }
       const advanced = clock.advance(time, () => {
         const active = recording;
+        motion.capture(game);
         game.step();
         if (active) {
           roundFrames++;
@@ -390,8 +403,9 @@
         }
       });
       handleEvents();
-      if (advanced && !game.paused) render();
-      requestAnimationFrame(frame);
+      // Draw moving scenes at the display's cadence, including callbacks with
+      // no new physics tick. All authoritative state still advances at 60 Hz.
+      if (advanced || game.state === 'playing' || game.state === 'home' || game.state === 'ready' || game.state === 'dying') render(clock.fraction(time));
     } catch (error) { reportFailure(error); }
   }
 
@@ -406,6 +420,9 @@
       const bodyContext = bodyCanvas.getContext('2d');
       bodyContext.drawImage(roadster, 0, 0);
       const body = createBody(bodyContext.getImageData(0, 0, bodyCanvas.width, bodyCanvas.height));
+      for (let age = 0; age < exhaustDuration; age++) {
+        exhaustFrames.push(createExhaust(age));
+      }
       game = new Game({ best, body });
       render();
       requestAnimationFrame(frame);

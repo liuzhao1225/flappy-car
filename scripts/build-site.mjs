@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, 'dist');
 const files = [
-  'index.html', 'style.css', 'engine.js', 'clock.js', 'game.js', 'seed.js',
+  'index.html', 'style.css', 'engine.js', 'clock.js', 'motion.js', 'game.js', 'seed.js',
   'about.html', 'about.css', 'robots.txt', 'sitemap.xml', 'assets/social-preview.jpg',
   'share.html', 'social.js', 'social.css', 'vendor/qrcode.js',
   'assets/fonts/pixel.css', 'assets/fonts/FUSION-OFL.txt',

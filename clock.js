@@ -23,6 +23,13 @@
       this.steps += count;
       return count;
     }
+
+    fraction(time) {
+      if (this.startTime === undefined) return 1;
+      // Presentation stays between the last two completed ticks. Retained
+      // catch-up debt must never extrapolate through an untested collision.
+      return Math.max(0, Math.min(1, (time - this.startTime + 1) * this.fps / 1000 - this.steps));
+    }
   }
   globalThis.FlappyClock = FixedStepClock;
 })();

@@ -14,7 +14,7 @@ test('rounded 60 Hz display timestamps produce one fixed physics tick per frame'
   assert.equal(ticks, 3600);
 });
 
-test('rounded 120 Hz display timestamps render on every second frame without 25 ms gaps', () => {
+test('rounded 120 Hz display timestamps advance physics on every second callback without 25 ms gaps', () => {
   const clock = new Clock(60);
   clock.advance(0, () => {});
   for (let frame = 1; frame <= 1200; frame++) {
