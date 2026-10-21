@@ -28,14 +28,14 @@
       }
     };
   }
-  async function paintCard(canvas, { score, best, url, name = 'FLAPPY CAR', identity = '', invitation = false }) {
+  async function paintCard(canvas, { score, best, url, name = '', identity = '', invitation = false }) {
     if (!artwork) artwork = Promise.all([
-      loadImage('assets/atlas.png'), loadImage('assets/dogecoin-medals.png'), loadImage('assets/roadster.png'),
+      loadImage('assets/atlas.png'), loadImage('assets/dogecoin-medals.png'), loadImage('assets/roadster.png'), loadImage('assets/starship-booster.png'),
     ]);
-    const [atlas, medals, car] = await artwork;
-    const fonts = await document.fonts.load('12px "Flappy Pixel"', `${name} ${identity} 扫码挑战自动加好友`);
+    const [atlas, medals, car, booster] = await artwork;
+    const fonts = await document.fonts.load('12px "Flappy Pixel"', `FLAPPY CAR ${name} ${identity} 扫码挑战自动加好友`);
     if (!fonts.length) throw new Error('分享字体加载失败');
-    const card = document.createElement('canvas'); card.width = 288; card.height = 384;
+    const card = document.createElement('canvas'); card.width = 288; card.height = 480;
     const ctx = card.getContext('2d'); ctx.imageSmoothingEnabled = false;
     const sprite = (key,x,y) => {
       const [sx,sy,w,h] = FLAPPY_ATLAS[key]; ctx.drawImage(atlas,sx,sy,w,h,x,y,w,h);
@@ -49,27 +49,40 @@
       while (ctx.measureText(value).width > maxWidth) value = value.slice(0,-2) + '…';
       ctx.fillText(value,x,y);
     };
-    sprite('bg_day',0,0); sprite('land',0,352);
-    sprite('text_game_over',42,24);
-    text(name,144,96,256,'center');
+    sprite('bg_day',0,0); sprite('land',0,448);
+    ctx.font = '24px "Flappy Pixel"'; ctx.textAlign = 'center'; ctx.fillStyle = '#543847';
+    ctx.fillText('FLAPPY CAR',144,36);
+    text(name,144,56,256,'center');
+    // Static gameplay artwork: the original booster and the car's two downward jets.
+    ctx.save(); ctx.beginPath(); ctx.rect(0,64,288,144); ctx.clip();
+    ctx.drawImage(booster,214,202-booster.height);
+    ctx.translate(52,118); ctx.scale(2,2);
+    for (const x of [3,37]) {
+      ctx.fillStyle = '#659eae'; ctx.fillRect(x-1,18,4,16);
+      ctx.fillStyle = '#c3eff0'; ctx.fillRect(x,16,2,19);
+      ctx.fillStyle = '#fff'; ctx.fillRect(x+1,16,1,15);
+      ctx.fillStyle = '#e5f6f4'; ctx.globalAlpha = .65;
+      ctx.fillRect(x-3,35,3,3); ctx.fillRect(x+2,37,3,2); ctx.fillRect(x-1,40,3,2);
+      ctx.globalAlpha = 1;
+    }
+    ctx.drawImage(car,0,0); ctx.restore();
     // The same native atlas panel, numeral spacing and medal thresholds as game.js.
-    const panelY = 108;
+    const panelY = 216;
     sprite('score_panel',25,panelY);
     const medal = score >= 40 ? 0 : score >= 30 ? 1 : score >= 20 ? 2 : score >= 10 ? 3 : null;
     if (medal !== null) ctx.drawImage(medals,medal*44,0,44,44,57,panelY+44,44,44);
     number(score,237,panelY+34); number(best,237,panelY+76);
-    ctx.drawImage(car,28,270,104,40);
-    text(identity,24,254,116);
-    text('扫码挑战',24,334,116);
-    if (invitation) text('自动加好友',24,350,116);
+    text(identity,24,382,116);
+    text('扫码挑战',24,416,116);
+    if (invitation) text('自动加好友',24,432,116);
     const qr = qrcode(0,'M'); qr.addData(url); qr.make();
     const count = qr.getModuleCount(), scale = Math.floor(128/(count+8));
     if (scale < 1) throw new Error('挑战链接过长，无法生成清晰二维码');
-    const side = (count+8)*scale, left = Math.round(208-side/2), top = Math.round(304-side/2);
+    const side = (count+8)*scale, left = Math.round(208-side/2), top = Math.round(408-side/2);
     ctx.fillStyle = '#fff'; ctx.fillRect(left,top,side,side); ctx.fillStyle = '#000';
     for (let y=0;y<count;y++) for(let x=0;x<count;x++) if(qr.isDark(y,x)) ctx.fillRect(left+(x+4)*scale,top+(y+4)*scale,scale,scale);
-    canvas.width = 864; canvas.height = 1152;
-    const output = canvas.getContext('2d'); output.imageSmoothingEnabled = false; output.drawImage(card,0,0,864,1152);
+    canvas.width = card.width*3; canvas.height = card.height*3;
+    const output = canvas.getContext('2d'); output.imageSmoothingEnabled = false; output.drawImage(card,0,0,canvas.width,canvas.height);
   }
   window.FlappyUI = { scoreMarkup, bindCopy, paintCard };
 })();
