@@ -6,7 +6,7 @@
   const lastKey = 'flappy-car.toy.last.v1';
   const shareUrl = 'https://www.bilibili.com/toy/flappy-car';
   let lastResult = JSON.parse(localStorage.getItem(lastKey) || 'null');
-  let period = 'all', previousFocus, rows = [], page = 0;
+  let period = 'all', previousFocus, rows = [], mine = null, page = 0;
   const modal = document.createElement('dialog');
   modal.className = 'social';
   modal.innerHTML = '<header class="social-header"><h2>排行榜</h2><div class="header-actions"><button data-refresh>刷新</button><button class="close" aria-label="关闭">×</button></div></header><p class="notice" role="status" aria-live="polite"></p><div class="social-content"></div>';
@@ -43,7 +43,11 @@
     const pages = Math.ceil(rows.length / size);
     pager.hidden = pages <= 1;
     page = Math.min(page, pages - 1);
-    list.innerHTML = rows.slice(page * size, (page + 1) * size).map(row => `<div class="person"><b class="rank">${esc(row.rank)}</b><div class="name"><b>${esc(row.nickname)}</b></div><strong>${esc(row.score)}</strong></div>`).join('');
+    list.innerHTML = rows.slice(page * size, (page + 1) * size).map(row => {
+      const me = mine?.ranked === true && row.rank === mine.rank && row.score === mine.score;
+      const avatar = row.avatar ? `<img class="avatar" src="${esc(row.avatar)}" alt="" referrerpolicy="no-referrer">` : '<span class="avatar" aria-hidden="true"></span>';
+      return `<div class="person" data-me="${me}"><b class="rank">${esc(row.rank)}</b>${avatar}<div class="name"><b>${esc(row.nickname)}</b></div>${me ? '<small class="me-tag">我</small>' : ''}<strong>${esc(row.score)}</strong></div>`;
+    }).join('');
     pager.querySelector('[data-page-count]').textContent = `${page + 1} / ${pages}`;
     pager.querySelectorAll('button').forEach(button => {
       const step = Number(button.dataset.page);
@@ -54,12 +58,21 @@
   new ResizeObserver(layoutRows).observe(content);
   async function rank() {
     content.innerHTML = '<p>读取排行榜…</p>';
-    try { rows = await sdk().getRankList({ board:1, period, limit:100 }); }
-    catch (error) { content.innerHTML = ''; throw error; }
+    const [listResult, mineResult] = await Promise.allSettled([
+      sdk().getRankList({ board:1, period, limit:100 }),
+      sdk().getMyRank({ board:1, period }),
+    ]);
+    if (listResult.status === 'rejected') { content.innerHTML = ''; throw listResult.reason; }
+    rows = listResult.value;
+    mine = mineResult.status === 'fulfilled' ? mineResult.value : null;
     page = 0;
     content.innerHTML = `<div class="rank-periods">${[['all','总榜'],['month','月榜'],['week','周榜'],['day','日榜']].map(([key,label]) => `<button data-period="${key}" aria-pressed="${period === key}">${label}</button>`).join('')}</div><div class="list" data-people></div><nav class="pagination" aria-label="排行榜翻页"><button data-page="-1">上一页</button><span data-page-count></span><button data-page="1">下一页</button></nav>`;
     content.querySelectorAll('[data-period]').forEach(button => button.onclick = () => withButton(button, async () => { period = button.dataset.period; await rank(); }));
     layoutRows();
+    if (mineResult.status === 'rejected') {
+      // Public rankings remain readable; failure to identify my row is explicit.
+      report(new Error(`本人排名读取失败：${mineResult.reason.message}`, { cause:mineResult.reason }));
+    }
   }
   const loadImage = source => new Promise((resolve, reject) => {
     const image = new Image(); image.onload = () => resolve(image);

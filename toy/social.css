@@ -1,3 +1,5 @@
 .social-header .header-actions { display:flex; align-items:center; gap:var(--space); }
 .social .rank-periods { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space); }
 .social .rank-periods button { padding:8px 0; }
+.social .person .avatar { width:calc(5 * var(--space)); height:calc(5 * var(--space)); flex-shrink:0; object-fit:cover; border:2px solid var(--ink); background:var(--cream); }
+.social .person .me-tag { color:var(--ink); white-space:nowrap; }
