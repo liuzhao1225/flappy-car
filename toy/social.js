@@ -5,8 +5,14 @@
   const bestKey = 'flappy-car.toy.best.v1';
   const lastKey = 'flappy-car.toy.last.v1';
   const shareUrl = 'https://www.bilibili.com/toy/flappy-car';
+  // Match the official SDK's environment detection. UA only selects guidance;
+  // the authenticated getMyRank response decides whether ranking is available.
+  const inBiliApp = /BiliApp/i.test(navigator.userAgent);
+  const externalMobile = !inBiliApp && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const inWechat = /MicroMessenger/i.test(navigator.userAgent);
   let lastResult = JSON.parse(localStorage.getItem(lastKey) || 'null');
   let period = 'all', previousFocus, rows = [], mine = null, page = 0;
+  let view = 'rank', loginState = 'checking', loginError, guest = false, resumeRound;
   const modal = document.createElement('dialog');
   modal.className = 'social';
   modal.innerHTML = '<header class="social-header"><h2>排行榜</h2><div class="header-actions"><button data-refresh>刷新</button><button class="close" aria-label="关闭">×</button></div></header><p class="notice" role="status" aria-live="polite"></p><div class="social-content"></div>';
@@ -27,10 +33,59 @@
     try { await action(); } catch (error) { report(error); }
     finally { button.disabled = false; }
   }
-  function close() { modal.close(); previousFocus?.focus(); }
+  const loginButton = document.createElement('button');
+  loginButton.className = 'pixel-button'; loginButton.hidden = true;
+  loginButton.textContent = externalMobile ? 'B站打开' : '登录上榜';
+  loginButton.onclick = showLogin;
+  $('#social-actions').append(loginButton);
+  const needsLogin = error => error.type === 'not_logged_in' || error.code === -101;
+  function setLogin(state, error) {
+    loginState = state; loginError = error;
+    loginButton.hidden = state === 'ready' || state === 'checking';
+  }
+  async function checkLogin() {
+    try {
+      await sdk().getMyRank({ board:1, period:'all' });
+      setLogin('ready'); guest = false;
+    } catch (error) {
+      console.error('Toy 登录检查失败', error);
+      setLogin(needsLogin(error) ? 'login' : 'error', error);
+    }
+  }
+  function close() {
+    if (view === 'login' && loginState !== 'ready') guest = true;
+    modal.close(); previousFocus?.focus();
+    if (view === 'login') { resumeRound?.(); resumeRound = null; }
+  }
   modal.querySelector('.close').onclick = close;
   modal.querySelector('[data-refresh]').onclick = event => withButton(event.currentTarget, rank);
-  modal.addEventListener('cancel', () => previousFocus?.focus());
+  modal.addEventListener('cancel', event => { event.preventDefault(); close(); });
+  function showLogin() {
+    if (!modal.open) previousFocus = document.activeElement;
+    view = 'login';
+    modal.querySelector('h2').textContent = loginState === 'error' ? '登录检查失败' : '登录上榜';
+    modal.querySelector('[data-refresh]').hidden = true;
+    modal.querySelector('.close').setAttribute('aria-label', '关闭并试玩');
+    notice();
+    if (loginState === 'error') report(loginError);
+    const guideExternal = externalMobile && loginState === 'login';
+    const direction = loginState === 'error' ? '暂时无法确认登录状态，请点「重新检测」。' : externalMobile
+      ? '点击页面右上角「打开App」，登录 B站后再玩。'
+      : inBiliApp ? '请先登录 B站 App，再点「重新检测」。' : '请先在 B站页面登录，再点「重新检测」。';
+    content.innerHTML = `<div class="login-guide">${guideExternal ? '<div class="open-app-arrow" aria-hidden="true">↗</div>' : ''}<p>${direction}</p><p class="hint">试玩成绩仅存本机，不上榜。</p><div class="actions"><button class="primary" data-check-login>重新检测</button><button data-guest>先试玩</button></div>${guideExternal ? `<details><summary>打不开？</summary><p>${inWechat ? '点微信右上角「…」，选择在浏览器打开，再点页面「打开App」。' : '确认已安装 B站 App，再点页面右上角「打开App」。'}</p><button data-copy>复制游戏链接</button><input class="link-field" aria-label="Toy 游戏链接" readonly value="${shareUrl}"></details>` : ''}</div>`;
+    content.querySelector('[data-guest]').onclick = close;
+    content.querySelector('[data-check-login]').onclick = event => withButton(event.currentTarget, async () => {
+      await checkLogin();
+      if (loginState === 'ready') { status(''); close(); }
+      else { showLogin(); if (loginState === 'login') notice('尚未登录 B站'); }
+    });
+    if (guideExternal) {
+      content.querySelector('[data-copy]').onclick = event => withButton(event.currentTarget, async () => {
+        await navigator.clipboard.writeText(shareUrl); notice('游戏链接已复制');
+      });
+    }
+    if (!modal.open) modal.showModal();
+  }
 
   function layoutRows() {
     const list = content.querySelector('[data-people]');
@@ -70,8 +125,13 @@
     content.querySelectorAll('[data-period]').forEach(button => button.onclick = () => withButton(button, async () => { period = button.dataset.period; await rank(); }));
     layoutRows();
     if (mineResult.status === 'rejected') {
-      // Public rankings remain readable; failure to identify my row is explicit.
-      report(new Error(`本人排名读取失败：${mineResult.reason.message}`, { cause:mineResult.reason }));
+      if (needsLogin(mineResult.reason)) {
+        console.error('Toy 本人排名读取失败', mineResult.reason);
+        setLogin('login', mineResult.reason);
+        notice('B站未登录');
+        const button = document.createElement('button'); button.textContent = '登录上榜';
+        button.onclick = showLogin; modal.querySelector('.notice').append(' ', button);
+      } else report(new Error(`本人排名读取失败：${mineResult.reason.message}`, { cause:mineResult.reason }));
     }
   }
   const loadImage = source => new Promise((resolve, reject) => {
@@ -116,10 +176,12 @@
     content.querySelector('[data-copy]').onclick = event => withButton(event.currentTarget, async () => { await navigator.clipboard.writeText(shareUrl); notice('挑战链接已复制'); });
   }
   async function show(tab = 'rank') {
+    view = tab;
     previousFocus = document.activeElement;
     if (!modal.open) modal.showModal();
     modal.querySelector('h2').textContent = tab === 'share' ? '成绩分享' : '排行榜';
     modal.querySelector('[data-refresh]').hidden = tab === 'share';
+    modal.querySelector('.close').setAttribute('aria-label', '关闭');
     notice();
     try { if (tab === 'share') await share(); else await rank(); }
     catch (error) { content.innerHTML = ''; report(error); }
@@ -127,8 +189,11 @@
   $('#open-social').textContent = '排行榜';
   $('#open-social').onclick = () => show('rank');
   $('#share-result').onclick = () => show('share');
+  const initialLogin = checkLogin().then(() => { if (loginState !== 'ready') showLogin(); });
   window.FlappySocial = {
     async prepareRound() {
+      await initialLogin;
+      if (loginState !== 'ready' && !guest) await new Promise(resolve => { resumeRound = resolve; showLogin(); });
       status(''); $('#share-result').hidden = true;
       return { id:crypto.randomUUID(), seed:crypto.getRandomValues(new Uint32Array(1))[0] };
     },
@@ -137,9 +202,19 @@
       lastResult = { score:record.score, best:Math.max(record.score, Number(localStorage.getItem(bestKey) || 0)), finishedAt:Date.now() };
       localStorage.setItem(lastKey, JSON.stringify(lastResult));
       $('#share-result').hidden = false;
+      if (guest) {
+        status('本局仅保存在本机，未上传排行榜。');
+        return { ...lastResult, uploaded:false };
+      }
       try { await sdk().submitScore({ board:1, score:record.score }); }
-      catch (error) { throw new Error(`成绩上传失败：${error.message}`, { cause:error }); }
-      return lastResult;
+      catch (error) {
+        if (needsLogin(error)) {
+          setLogin('login', error); showLogin();
+          throw new Error('本局未上传：请登录 B站后重新挑战。', { cause:error });
+        }
+        throw new Error(`成绩上传失败：${error.message}`, { cause:error });
+      }
+      return { ...lastResult, uploaded:true };
     },
     status, show, isOpen:() => modal.open,
     reportGameError(error) { console.error(error); status(`操作失败：${error.message}`); },

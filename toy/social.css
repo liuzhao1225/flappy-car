@@ -3,3 +3,10 @@
 .social .rank-periods button { padding:8px 0; }
 .social .person .avatar { width:calc(5 * var(--space)); height:calc(5 * var(--space)); flex-shrink:0; object-fit:cover; border:2px solid var(--ink); background:var(--cream); }
 .social .person .me-tag { color:var(--ink); white-space:nowrap; }
+.social .login-guide { display:flex; flex-direction:column; gap:calc(2 * var(--space)); min-height:0; }
+.social .login-guide .actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.social .open-app-arrow { align-self:flex-end; font:400 48px/1 sans-serif; color:var(--ink); }
+.social .login-guide summary { cursor:pointer; }
+.social .login-guide details[open] { display:flex; flex-direction:column; gap:var(--space); }
+.social .login-guide .link-field { margin-top:var(--space); }
+.social .notice button { padding:2px 8px; }

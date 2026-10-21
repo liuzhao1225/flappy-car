@@ -2,7 +2,7 @@
 
 运行 `node scripts/build-toy.mjs`，生成 `.wrangler/toy/flappy-car-toy.zip`，根目录含 `index.html`。官网构建与 API 不变。
 
-Toy 使用官方 JS SDK 的独立总/月/周/日榜。每局结算后自动提交真实成绩，平台负责登录和数据确认；提交失败保留原始错误。玩法、物理和素材复用现有游戏；Toy 本机成绩使用独立存储键。排行榜没有接入官网账号、好友或数据库，分享图二维码使用现有 `vendor/qrcode.js` 在本地生成，指向 `https://www.bilibili.com/toy/flappy-car`。
+Toy 使用官方 JS SDK 的独立总/月/周/日榜。进入时用 `getMyRank` 检查登录态，不提前索取用户资料；已登录用户每局结算后自动提交真实成绩，首次提交仍由平台完成数据确认。未登录时按环境显示引导，可明确选择本机试玩，试玩成绩不会上传。网络等其他错误保留原始原因，不作为未登录处理，也不会自动切换试玩。玩法、物理和素材复用现有游戏；Toy 本机成绩使用独立存储键。排行榜没有接入官网账号、好友或数据库，分享图二维码使用现有 `vendor/qrcode.js` 在本地生成，指向 `https://www.bilibili.com/toy/flappy-car`。
 
 仅本地构建不能证明 Toy SDK 在线可用，预览先验证玩法和布局，正式入口再验证结算自动上传、排行榜和二维码；平台预览缺少 Toy ID 时会保留 SDK 原始错误。测试分数不得冒充玩家成绩。
 
@@ -12,4 +12,6 @@ Toy 使用官方 JS SDK 的独立总/月/周/日榜。每局结算后自动提�
 
 界面尺寸与官网共用 `style.css` 中的 9:16 竖屏边界。桌面上的排行榜、分享与玩法页也不扩展到游戏两侧空白区，长列表在框内分页。
 
-排行榜展示官方 `getRankList` 返回的头像，用同一榜位和周期的 `getMyRank`（`ranked/rank/score`）高亮本人，0分也可高亮。游客或本人排名请求失败时保留可读的公开榜单并明确显示原始错误。官方当前不返回榜单用户UID，无法可靠跳转其B站主页；SDK只开放访问者与当前作者的关系，未开放关注、粉丝、互关列表。能力来源：https://www.bilibili.com/toy/publish/sdk 。
+排行榜展示官方 `getRankList` 返回的头像，用同一榜位和周期的 `getMyRank`（`ranked/rank/score`）高亮本人，0分也可高亮。未登录时保留公开榜单并提供登录引导；其他本人排名请求失败显示原始错误。官方当前不返回榜单用户UID，无法可靠跳转其B站主页；SDK只开放访问者与当前作者的关系，未开放关注、粉丝、互关列表。能力来源：https://www.bilibili.com/toy/publish/sdk 。
+
+环境判断沿用官方 SDK 的 `BiliApp` / `Android|iPhone|iPad|iPod|Mobile` UA 规则，`MicroMessenger` 只选择微信帮助文案。UA 不证明登录；`ranked:false` 仍是有效登录。外部手机浏览器引导到宿主页面右上角的官方「打开App」入口，微信打不开时展开帮助，提供在浏览器打开和复制链接。不自行构造 App scheme，不把 App 唤起视为已登录，不补传试玩成绩；登录失效时本局明确标为未上传，重新检测成功后从下一局开始自动上传。
