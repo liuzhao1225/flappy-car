@@ -9,7 +9,7 @@ const output = resolve(root, 'dist');
 const files = [
   'index.html', 'style.css', 'engine.js', 'clock.js', 'motion.js', 'game.js', 'seed.js',
   'about.html', 'about.css', 'robots.txt', 'sitemap.xml', 'assets/social-preview.jpg',
-  'share.html', 'social.js', 'social.css', 'vendor/qrcode.js',
+  'share.html', 'social.js', 'social.css', 'game-ui.js', 'vendor/qrcode.js',
   'assets/fonts/pixel.css', 'assets/fonts/FUSION-OFL.txt',
   ...(await readdir(resolve(root,'assets/fonts/pixel'))).filter(name=>name.endsWith('.woff2')).map(name=>`assets/fonts/pixel/${name}`),
   'assets/atlas.js', 'assets/atlas.png',

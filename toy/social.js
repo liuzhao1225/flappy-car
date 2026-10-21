@@ -80,9 +80,7 @@
       else { showLogin(); if (loginState === 'login') notice('尚未登录 B站'); }
     });
     if (guideExternal) {
-      content.querySelector('[data-copy]').onclick = event => withButton(event.currentTarget, async () => {
-        await navigator.clipboard.writeText(shareUrl); notice('游戏链接已复制');
-      });
+      FlappyUI.bindCopy(content.querySelector('[data-copy]'), content.querySelector('.link-field'), notice);
     }
     if (!modal.open) modal.showModal();
   }
@@ -101,7 +99,7 @@
     list.innerHTML = rows.slice(page * size, (page + 1) * size).map(row => {
       const me = mine?.ranked === true && row.rank === mine.rank && row.score === mine.score;
       const avatar = row.avatar ? `<img class="avatar" src="${esc(row.avatar)}" alt="" referrerpolicy="no-referrer">` : '<span class="avatar" aria-hidden="true"></span>';
-      return `<div class="person" data-me="${me}"><b class="rank">${esc(row.rank)}</b>${avatar}<div class="name"><b>${esc(row.nickname)}</b></div>${me ? '<small class="me-tag">我</small>' : ''}<strong>${esc(row.score)}</strong></div>`;
+      return `<div class="person" data-me="${me}"><b class="rank">${esc(row.rank)}</b>${avatar}<div class="name"><b>${esc(row.nickname)}</b></div>${me ? '<small class="me-tag">我</small>' : ''}<strong>${FlappyUI.scoreMarkup(row.score)}</strong></div>`;
     }).join('');
     pager.querySelector('[data-page-count]').textContent = `${page + 1} / ${pages}`;
     pager.querySelectorAll('button').forEach(button => {
@@ -134,35 +132,12 @@
       } else report(new Error(`本人排名读取失败：${mineResult.reason.message}`, { cause:mineResult.reason }));
     }
   }
-  const loadImage = source => new Promise((resolve, reject) => {
-    const image = new Image(); image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('分享图片加载失败')); image.src = source;
-  });
   async function share() {
     if (!lastResult) throw new Error('完成一局后可分享成绩。');
     content.innerHTML = '<p>生成分享图…</p>';
     const result = { ...lastResult };
-    // Toy host currently rejects its slashless public URL in getQrCode/share.
-    // Encode our canonical URL locally; keep ranking on the official SDK.
-    const qr = qrcode(0, 'M'); qr.addData(shareUrl); qr.make();
-    const [car, code, fonts] = await Promise.all([
-      loadImage('assets/roadster.png'), loadImage(qr.createDataURL(8, 32)),
-      document.fonts.load('24px "Flappy Pixel"', '本次飞行本机最高分扫码挑战'),
-    ]);
-    if (!fonts.length) throw new Error('分享字体加载失败。');
-    const card = document.createElement('canvas'); card.width = 720; card.height = 960;
-    const ctx = card.getContext('2d'); ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#273849'; ctx.fillRect(0,0,720,960);
-    ctx.fillStyle = '#fff3ce'; ctx.fillRect(8,8,704,944);
-    ctx.fillStyle = '#4ec0ca'; ctx.fillRect(8,8,704,138);
-    const text = (value,x,y,size=24) => { ctx.font = `${size}px "Flappy Pixel"`; ctx.fillStyle = '#273849'; ctx.fillText(value,x,y); };
-    text('FLAPPY CAR',40,96,72); text('TOY',40,190,24);
-    text('本次飞行',40,260,24); text(String(result.score),40,380,96);
-    ctx.drawImage(car,344,262,312,120);
-    text('本机最高分',40,470,24); text(String(result.best),40,544,48);
-    ctx.drawImage(code,360,576,320,320);
-    text('扫码挑战',40,690,36);
-    text(new Date(result.finishedAt).toLocaleDateString('zh-CN'),40,888,24);
+    const card = document.createElement('canvas');
+    await FlappyUI.paintCard(card, { score:result.score, best:result.best, url:shareUrl });
     const address = card.toDataURL('image/png');
     const canSave = await sdk().isSupport('saveImageToAlbum');
     const canShare = await sdk().isSupport('sharePicture');
@@ -173,7 +148,7 @@
       else { const link = document.createElement('a'); link.href = address; link.download = `Flappy-Car-Toy-${result.score}.png`; link.click(); }
     });
     content.querySelector('[data-share]')?.addEventListener('click', event => withButton(event.currentTarget, () => sdk().sharePicture({ base64Data:address })));
-    content.querySelector('[data-copy]').onclick = event => withButton(event.currentTarget, async () => { await navigator.clipboard.writeText(shareUrl); notice('挑战链接已复制'); });
+    FlappyUI.bindCopy(content.querySelector('[data-copy]'), content.querySelector('.link-field'), notice);
   }
   async function show(tab = 'rank') {
     view = tab;

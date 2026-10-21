@@ -10,7 +10,7 @@
   let currentTab = 'profile', rankScope = 'all';
   let previousFocus, peopleView, peopleObserver;
   const modal = document.createElement('dialog'); modal.className = 'social'; modal.id = 'social-dialog';
-  modal.innerHTML = `<header class="social-header"><h2>FLAPPY CAR<small>车手俱乐部</small></h2><button class="close" aria-label="关闭车手俱乐部">×</button></header><nav class="social-nav" aria-label="车手俱乐部"><button data-tab="profile">我的车手</button><button data-tab="friends">好友</button><button data-tab="rank">排行榜</button></nav><p class="notice" role="status" aria-live="polite"></p><div class="social-content"></div>`;
+  modal.innerHTML = `<header class="social-header"><h2>我的车手</h2><button class="close" aria-label="关闭车手俱乐部">×</button></header><nav class="social-nav" aria-label="车手俱乐部"><button data-tab="profile">我的车手</button><button data-tab="friends">好友</button><button data-tab="rank">排行榜</button></nav><p class="notice" role="status" aria-live="polite"></p><div class="social-content"></div>`;
   document.body.append(modal);
   const notice = (message = '', error = false, root = modal) => {
     const node = root.querySelector('.notice'); node.textContent = message; node.dataset.error = String(error);
@@ -92,6 +92,7 @@
   }
   async function renderTab() {
     const content = modal.querySelector('.social-content');
+    modal.querySelector('h2').textContent = {profile:'我的车手',friends:'好友',rank:'排行榜',share:'成绩分享',recovery:'恢复车手'}[currentTab];
     peopleObserver?.disconnect();
     peopleView = null;
     content.dataset.tab = currentTab;
@@ -158,7 +159,7 @@
         : `<small>申请已发送</small><button data-action="remove" data-id="${player.id}">撤回</button>`;
       else controls = `<button class="primary" data-action="add" data-id="${player.id}">加好友</button>`;
     }
-    return `<div class="person" data-me="${self}">${type === 'rank' ? `<b class="rank">${player.rank}</b>` : ''}<div class="name"><b>${esc(player.name)}${self ? ' · 我' : ''}</b><small>ID ${player.id}</small></div><strong>${player.best}</strong>${controls}</div>`;
+    return `<div class="person" data-me="${self}">${type === 'rank' ? `<b class="rank">${player.rank}</b>` : ''}<div class="name"><b>${esc(player.name)}${self ? ' · 我' : ''}</b><small>ID ${player.id}</small></div><strong>${FlappyUI.scoreMarkup(player.best)}</strong>${controls}</div>`;
   }
   function people(players, type) {
     peopleView = { players, type, page:0 };
@@ -205,30 +206,6 @@
   $('#open-social')?.addEventListener('click', () => show('profile'));
   $('#share-result')?.addEventListener('click', () => show('share'));
   window.FlappySocial = { prepareRound, completeRound, status, reportGameError:error => { console.error(error); status(`无法开始：${error.message}。请点击开始重试。`); }, show, isOpen:() => modal.open };
-  const glyphs = {
-    A:['01110','10001','10001','11111','10001','10001','10001'], B:['11110','10001','10001','11110','10001','10001','11110'],
-    C:['01111','10000','10000','10000','10000','10000','01111'], D:['11110','10001','10001','10001','10001','10001','11110'],
-    E:['11111','10000','10000','11110','10000','10000','11111'], F:['11111','10000','10000','11110','10000','10000','10000'],
-    I:['111','010','010','010','010','010','111'], L:['10000','10000','10000','10000','10000','10000','11111'],
-    O:['01110','10001','10001','10001','10001','10001','01110'], P:['11110','10001','10001','11110','10000','10000','10000'],
-    R:['11110','10001','10001','11110','10100','10010','10001'], S:['01111','10000','10000','01110','00001','00001','11110'],
-    T:['11111','00100','00100','00100','00100','00100','00100'], Y:['10001','10001','01010','00100','00100','00100','00100'],
-    '0':['01110','11001','10101','10101','10101','10011','01110'], '1':['010','110','010','010','010','010','111'],
-    '2':['01110','10001','00001','00010','00100','01000','11111'], '3':['11110','00001','00001','01110','00001','00001','11110'],
-    '4':['00010','00110','01010','10010','11111','00010','00010'], '5':['11111','10000','10000','11110','00001','00001','11110'],
-    '6':['01110','10000','10000','11110','10001','10001','01110'], '7':['11111','00001','00010','00100','01000','01000','01000'],
-    '8':['01110','10001','10001','01110','10001','10001','01110'], '9':['01110','10001','10001','01111','00001','00001','01110'],
-  };
-  function bitmap(ctx, value, x, y, scale, color) {
-    ctx.fillStyle = color;
-    for (const char of value) {
-      const glyph = glyphs[char];
-      if (!glyph) { x += 4 * scale; continue; }
-      glyph.forEach((row, yy) => [...row].forEach((bit, xx) => { if (bit === '1') ctx.fillRect(x + xx * scale, y + yy * scale, scale, scale); }));
-      x += (glyph[0].length + 1) * scale;
-    }
-  }
-  const loadImage = source => new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error(`无法读取分享素材 ${source}`)); image.src = source; });
   let qrLoading;
   function loadQRCode() {
     if (!qrLoading) qrLoading = new Promise((resolve,reject) => {
@@ -240,57 +217,9 @@
   }
   async function paintCard(canvas, result, url) {
     if (!/^[a-f0-9]{32}$/.test(result.inviteCode)) throw new Error('分享邀请信息缺失，请重新读取成绩');
-    const [car, medals, fonts] = await Promise.all([
-      loadImage('assets/roadster.png'), loadImage('assets/dogecoin-medals.png'),
-      document.fonts.load('12px "Flappy Pixel"',result.player.name+' 本次飞行最高分总榜排名扫码开始铂金黄金白银青铜解锁'),
-      loadQRCode(),
-    ]);
-    if (!fonts.length) throw new Error('像素字体未加载，无法生成分享图');
-    const ctx = canvas.getContext('2d'); canvas.width = 360; canvas.height = 480; ctx.imageSmoothingEnabled = false;
-    const fill = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x,y,w,h); };
-    const lettering = document.createElement('canvas'), ink = lettering.getContext('2d');
-    const text = (value,x,y,size=12,color='#273849') => {
-      ink.font='12px "Flappy Pixel"';
-      const metrics=ink.measureText(value), ascent=Math.ceil(metrics.fontBoundingBoxAscent);
-      lettering.width=Math.ceil(metrics.width);
-      lettering.height=ascent+Math.ceil(metrics.fontBoundingBoxDescent);
-      ink.font='12px "Flappy Pixel"'; ink.fillStyle=color; ink.fillText(value,0,ascent);
-      // Rasterize once on the native grid; keep exported glyphs free of blended edges.
-      const pixels=ink.getImageData(0,0,lettering.width,lettering.height);
-      for (let i=3;i<pixels.data.length;i+=4) pixels.data[i]=pixels.data[i]>=128 ? 255 : 0;
-      ink.putImageData(pixels,0,0);
-      const scale=size/12;
-      ctx.drawImage(lettering,x,y-ascent*scale,lettering.width*scale,lettering.height*scale);
-    };
-    fill('#273849',0,0,360,480); fill('#fff3ce',4,4,352,472);
-    fill('#4ec0ca',4,4,352,57); fill('#273849',4,61,352,3);
-    bitmap(ctx,'FLAPPY CAR',20,20,3,'#273849');
-    // The font uses a native 12 px grid. Keep every label at 12 px or 24 px.
-    ctx.font='24px "Flappy Pixel"';
-    const nameSize=ctx.measureText(result.player.name).width <= 320 ? 24 : 12;
-    text(result.player.name,20,90,nameSize); text(`ID ${result.player.id}`,20,110,12,'#64767b');
-    text('本次飞行',20,143,12);
-    const scoreText = String(result.score), scoreScale = scoreText.length > 4 ? 6 : 9;
-    bitmap(ctx,scoreText,20,155,scoreScale,'#273849');
-    const frame = result.score >= 40 ? 0 : result.score >= 30 ? 1 : result.score >= 20 ? 2 : result.score >= 10 ? 3 : null;
-    if (frame !== null) {
-      ctx.drawImage(medals,frame*44,0,44,44,244,137,88,88);
-      text(['铂金 DOGE','黄金 DOGE','白银 DOGE','青铜 DOGE'][frame],250,239,12);
-    } else { text('NEXT MEDAL',248,177,12); text('10 分解锁',248,198,12); }
-    fill('#c3ece0',4,254,352,90);
-    // Native game pixels enlarged by whole numbers, with flat colour exhaust.
-    fill('#9bd6cc',4,318,352,26); fill('#84bdb7',20,296,25,48); fill('#a8dfd2',28,282,29,62); fill('#84bdb7',300,292,28,52);
-    ctx.drawImage(car,102,264,156,60);
-    for (const x of [111,213]) { fill('#659eae',x-2,312,10,16); fill('#c3eff0',x,312,6,22); fill('#ffffff',x+2,312,2,16); }
-    fill('#273849',4,344,352,3);
-    text('最高分',20,370,12,'#64767b'); text(String(result.player.best),20,397,24);
-    text('总榜排名',120,370,12,'#64767b'); text(result.player.rank ? `#${result.player.rank}` : '—',120,397,24);
-    text('扫码开玩 · 自动加好友',20,434,12); text('flappy-car.xiaoke.ai',20,456,12,'#64767b');
-    const inviteURL=new URL('./',url); inviteURL.searchParams.set('invite',result.inviteCode);
-    const qr = qrcode(0,'M'); qr.addData(inviteURL.href); qr.make();
-    const count = qr.getModuleCount(), scale = 2, side = (count+8)*scale, left = 344-side, top = 464-side;
-    fill('#ffffff',left,top,side,side); ctx.fillStyle='#000000';
-    for (let y=0;y<count;y++) for(let x=0;x<count;x++) if(qr.isDark(y,x)) ctx.fillRect(left+(x+4)*scale,top+(y+4)*scale,scale,scale);
+    await loadQRCode();
+    const inviteURL = new URL('./',url); inviteURL.searchParams.set('invite',result.inviteCode);
+    await FlappyUI.paintCard(canvas, { score:result.score, best:result.player.best, url:inviteURL.href, name:result.player.name, identity:`ID ${result.player.id}`, invitation:true });
     canvas.setAttribute('aria-label',`${result.player.name}，本次 ${result.score} 分，最高 ${result.player.best} 分，车手 ID ${result.player.id}。扫码开始飞行并自动加好友。`);
   }
   async function renderShare(root,result,own) {
@@ -298,8 +227,8 @@
     root.innerHTML=`<div class="share-layout"><div class="share-art"><canvas class="share-card" width="360" height="480" role="img"></canvas><img class="export-image" alt="可保存的完整分享卡" hidden></div><div class="share-info"><h3>${own ? '分享这次飞行' : esc(result.player.name)+' 的飞行'}</h3><p>${own ? '我飞过了' : '飞过了'} <b>${result.score}</b> 组星舰喷口</p><p class="hint player-id">车手 ID · ${result.player.id}</p><div class="save-hint hint" hidden>长按图片，选择“保存图片”存入相册。</div><div class="actions"><button class="primary" data-save-card disabled>正在生成图片…</button><button data-copy-link>复制挑战链接</button>${!own && result.player.id !== identity?.player.id ? `<button data-action="add" data-id="${result.player.id}">添加好友</button>` : ''}<a class="button" href="./">${own ? '继续飞行' : '接受挑战'}</a></div><input class="link-field" aria-label="挑战链接" readonly value="${esc(url)}"><div class="result-meta"><p class="hint">${new Date(result.finishedAt).toLocaleString('zh-CN')}</p></div></div></div>`;
     const canvas=root.querySelector('canvas'); await paintCard(canvas,result,url);
     // Prepare the PNG before the tap: native sharing needs transient activation.
-    const output=document.createElement('canvas'); output.width=1080; output.height=1440;
-    const context=output.getContext('2d'); context.imageSmoothingEnabled=false; context.drawImage(canvas,0,0,1080,1440);
+    const output=document.createElement('canvas'); output.width=canvas.width; output.height=canvas.height;
+    const context=output.getContext('2d'); context.imageSmoothingEnabled=false; context.drawImage(canvas,0,0);
     const blob=await new Promise((resolve,reject)=>output.toBlob(value=>value ? resolve(value) : reject(new Error('分享图片生成失败')),'image/png'));
     const file=new File([blob],`Flappy-Car-${result.player.id}-${result.score}.png`,{type:'image/png'});
     const address=await new Promise((resolve,reject)=>{
@@ -320,10 +249,7 @@
     save.hidden=mobile && !nativeSave;
     save.textContent=mobile ? '保存到照片' : '下载分享图';
     save.disabled=false;
-    root.querySelector('[data-copy-link]').onclick=async()=>{
-      try { await navigator.clipboard.writeText(url); notice('挑战链接已复制',false,root.closest('.share-shell')||modal); }
-      catch(error) { report(new Error(`复制失败：${error.message}。可手动复制下方链接。`),root.closest('.share-shell')||modal); }
-    };
+    FlappyUI.bindCopy(root.querySelector('[data-copy-link]'), root.querySelector('.link-field'), (message,error) => notice(message,error,noticeRoot));
     save.onclick=async()=>{
       try {
         if (nativeSave) {

@@ -8,7 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const output = resolve(root, '.wrangler/toy/package');
 await mkdir(output, { recursive:true });
 // Dedicated output: the website build and production services are untouched.
-const files = ['index.html','style.css','social.css','about.css','game.js','engine.js','clock.js','motion.js','seed.js','vendor/qrcode.js',
+const files = ['index.html','style.css','social.css','about.css','game-ui.js','game.js','engine.js','clock.js','motion.js','seed.js','vendor/qrcode.js',
   'assets/atlas.js','assets/atlas.png','assets/roadster.png','assets/starship-booster.png','assets/dogecoin-medals.png',
   'assets/fonts/pixel.css','assets/SOURCE-LICENSE.md',
   ...['wing','point','hit','die','swooshing'].map(name => `assets/audio/${name}.mp3`),
