@@ -1,12 +1,11 @@
-:root { color-scheme: light; background: #111; font-family: system-ui, sans-serif; }
+:root { --game-width:min(100vw,56.25svh); --game-height:calc(var(--game-width) * 16 / 9); --frame-inset:8px; color-scheme: light; background: #111; font-family: system-ui, sans-serif; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { height: 100svh; display: grid; place-items: center; overscroll-behavior: none; }
 #game {
   position: relative;
-  width: min(100vw, 56.25vh);
-  /* Keep the frame stable while mobile browser toolbars expand or collapse. */
-  width: min(100vw, 56.25svh);
+  /* All screens share this stable portrait frame. */
+  width: var(--game-width);
   aspect-ratio: 9 / 16;
   overflow: hidden;
   background: #4ec0ca;
